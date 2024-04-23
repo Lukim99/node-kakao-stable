@@ -52,6 +52,10 @@
     "type": "git",
     "url": "https://github.com/Lukim99/node-kakao-stable.git"
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  },
+  "author": "Lukim9",
   "dependencies": {
     "axios": "^0.24.0",
     "bson": "^4.4.1",
