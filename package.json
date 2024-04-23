@@ -15,12 +15,12 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "./node_modules/.bin/mocha -r ts-node/register ./tests/*.test.ts",
+    "test": "bin\\mocha -r ts-node/register tests/*.test.ts",
     "locotest": "node -r ts-node/register loco-test.ts",
     "build": "npm run build:node",
-    "build:node": "./node_modules/.bin/tsc --outDir dist --declarationDir dist --declaration true",
-    "docs": "./node_modules/.bin/typedoc src",
-    "fix": "./node_modules/.bin/eslint --fix ./src/**/*",
+    "build:node": "bin\\tsc --outDir dist --declarationDir dist --declaration true",
+    "docs": "bin\\typedoc src",
+    "fix": "bin\\eslint --fix src/**/*",
     "prepublishOnly": "npm run fix && npm run test && npm run build"
   },
   "keywords": [
