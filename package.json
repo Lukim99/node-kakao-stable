@@ -1,7 +1,7 @@
 {
-  "name": "node-kakao",
+  "name": "node-kakao-stable",
   "version": "4.5.0",
-  "description": "Loco protocol compatible library",
+  "description": "Loco protocol compatible library (stable)",
   "main": "./dist/index.js",
   "exports": {
     ".": "./dist/index.js",
@@ -29,11 +29,6 @@
     "chat-client",
     "loco-protocol"
   ],
-  "author": {
-    "name": "storycraft",
-    "email": "storycraft@pancake.sh",
-    "url": "https://pancake.sh"
-  },
   "license": "MIT",
   "devDependencies": {
     "@types/bson": "^4.0.4",
@@ -55,7 +50,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/storycraft/node-kakao.git"
+    "url": "https://github.com/Lukim99/node-kakao-stable.git"
   },
   "dependencies": {
     "axios": "^0.24.0",
