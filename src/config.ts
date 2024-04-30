@@ -14,8 +14,8 @@ export const DefaultConfiguration: OAuthLoginConfig & ClientConfig = {
 
   agent: 'win32',
 
-  version: '3.2.3',
-  appVersion: '3.2.3.2698',
+  version: '3.4.7',
+  appVersion: '3.4.7.3369',
 
   osVersion: '10.0',
 
