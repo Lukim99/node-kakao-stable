@@ -32,6 +32,7 @@ export const DefaultConfiguration: OAuthLoginConfig & ClientConfig = {
   subDevice: true,
   deviceModel: '',
 
+  xvcSeedList: [ 'ARTHUR', 'RUZ' ],
   loginTokenSeedList: ['PITT', 'INORAN'],
 
 };
