@@ -10,12 +10,12 @@ export const DefaultConfiguration: OAuthLoginConfig & ClientConfig = {
   locoBookingPort: 443,
 
   // eslint-disable-next-line max-len
-  locoPEMPublicKey: `-----BEGIN PUBLIC KEY-----\nMIIBIDANBgkqhkiG9w0BAQEFAAOCAQ0AMIIBCAKCAQEApElgRBx+g7sniYFW7LE8ivrwXShKTRFV8lXNItMXbN5QSC8vJ/cTSOTS619Xv5Zx7xXJIk4EKxtWesEGbgZpEUP2xQ+IeH9oz0JxayEMvvD1nVNAWgpWE4pociEoArsK7qY3YwXb1CiDHo9hojLv7djbo3cwXvlyMh4TUrX2RjCZPlVJxk/LVjzcl9ohJLkl3eoSrf0AE4kQ9mk3+raEhq5Dv+IDxKYX+fIytUWKmrQJusjtre9oVUX5sBOYZ0dzez/XapusEhUWImmB6mciVXfRXQ8IK4IH6vfNyxMSOTfLEhRYN2SMLzplAYFiMV536tLS3VmG5GJRdkpDubqPeQIBAw==\n-----END PUBLIC KEY-----`,
+  locoPEMPublicKey: `-----BEGIN PUBLIC KEY-----\nMIIBIDANBgkqhkiG9w0BAQEFAAOCAQ0AMIIBCAKCAQEAo7B26MRFhR8ZpnDCMarG20Lv0JcX0GBIpcxWkGzRqye53zf/1QF+fBOhQFtdHD5IeaakmdPGGKckcrC1DKXvHvbupwNp2UE/5mLY4rR5qfchQu5wzubCrRIEXVKyXEogSiiWjjfwumpJ7j7J8qx6ZRhBYPIvYsQ6QGfNjSpvE9m4KYqwAnY9I2ydGHnX/OW4+pEIgrIeFSR+DQokeRMI5RmDYUQC6foDBXxX6eF4scw5/mcojvxGGUXLyqEdH8wSPnULhh8NRH6+PBFfQRpC3JXdsh2kJ3SlvLHd9/pfEGKAEMdPNvMcQO/P4on9gbq6RKZVamwwEhBBS2Ajw/RjcQIBAw==\n-----END PUBLIC KEY-----`,
 
   agent: 'win32',
 
-  version: '3.4.7',
-  appVersion: '3.4.7.3369',
+  version: '26.1.2',
+  appVersion: '26.1.2.4957',
 
   osVersion: '10.0',
 
@@ -32,7 +32,6 @@ export const DefaultConfiguration: OAuthLoginConfig & ClientConfig = {
   subDevice: true,
   deviceModel: '',
 
-  xvcSeedList: [ 'ARTHUR', 'RUZ' ],
   loginTokenSeedList: ['PITT', 'INORAN'],
 
 };
@@ -44,8 +43,6 @@ export interface BookingConfig {
 
   agent: string;
   mccmnc: string;
-
-  deviceModel: string;
 
 }
 

@@ -12,22 +12,28 @@ export async function createNodeCrypto(pubKey: string): Promise<CryptoStore> {
 
   const store = {
     toAESEncrypted(buffer: Uint8Array, iv: Uint8Array) {
-      const cipher = crypto.createCipheriv('aes-128-cfb', key, iv);
+      const cipher = crypto.createCipheriv('aes-128-gcm', key, iv);
 
       const encrypted = cipher.update(buffer);
       const final = cipher.final();
+      const tag = cipher.getAuthTag();
 
-      const res = new Uint8Array(encrypted.byteLength + final.byteLength);
+      const res = new Uint8Array(encrypted.byteLength + final.byteLength + tag.byteLength);
 
       res.set(encrypted, 0);
       res.set(final, encrypted.byteLength);
+      res.set(tag, encrypted.byteLength + final.byteLength);
 
       return res;
     },
     toAESDecrypted(buffer: Uint8Array, iv: Uint8Array) {
-      const cipher = crypto.createDecipheriv('aes-128-cfb', key, iv);
+      const tag = buffer.slice(buffer.byteLength - 16);
+      const ciphertext = buffer.slice(0, buffer.byteLength - 16);
 
-      const decrypted = cipher.update(buffer);
+      const cipher = crypto.createDecipheriv('aes-128-gcm', key, iv);
+      cipher.setAuthTag(Buffer.from(tag));
+
+      const decrypted = cipher.update(ciphertext);
       const final = cipher.final();
 
       const res = new Uint8Array(decrypted.byteLength + final.byteLength);
@@ -43,7 +49,7 @@ export async function createNodeCrypto(pubKey: string): Promise<CryptoStore> {
     },
 
     randomCipherIV() {
-      return crypto.randomBytes(16);
+      return crypto.randomBytes(12);
     },
 
     getRSAEncryptedKey() {

@@ -16,7 +16,7 @@ import { KnownChatType, TalkClient } from 'node-kakao';
 const DEVICE_UUID = process.env['deviceUUID'] as string;
 const ACCESS_TOKEN = process.env['accessToken'] as string;
 const REFRESH_TOKEN = process.env['refreshToken'] as string;
-const USER_ID = Long.fromValue(process.env['userId'] as string);
+const USER_ID = Long.fromValue(process.env['userId'] as string) as any;
 
 const CLIENT = new TalkClient();
 

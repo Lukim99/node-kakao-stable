@@ -24,21 +24,21 @@ import { Long } from 'bson';
  * Create loco stream by performing booking and checkin.
  */
 export class TalkSessionFactory implements SessionFactory {
-  async getConf(config: BookingConfig): AsyncCommandResult<GetConfRes> {
+  async getConf(userId: Long, config: BookingConfig): AsyncCommandResult<GetConfRes> {
     const bookingStream = await NetSocket.createTLSSocket({
       host: config.locoBookingHost,
       port: config.locoBookingPort,
       keepAlive: false,
     });
 
-    return getBookingData(bookingStream, config);
+    return getBookingData(bookingStream, config, userId);
   }
 
   async getCheckin(userId: Long, config: CheckinConfig): AsyncCommandResult<CheckinRes> {
     let checkinStream;
     const checkinCrypto = await newCryptoStore(config.locoPEMPublicKey);
     try {
-      const conf = await this.getConf(config);
+      const conf = await this.getConf(userId, config);
       if (!conf.success) return conf;
 
       checkinStream = new LocoSecureLayer(await NetSocket.createTCPSocket({

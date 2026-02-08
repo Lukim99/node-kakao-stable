@@ -14,22 +14,41 @@ export async function createForgeCrypto(pubKey: string): Promise<CryptoStore> {
 
   return {
     toAESEncrypted(buffer: Uint8Array, iv: Uint8Array): Uint8Array {
-      const cipher = forge.cipher.createCipher('AES-CFB', key);
+      const cipher = forge.cipher.createCipher('AES-GCM', key);
 
-      cipher.start({ iv: forge.util.binary.raw.encode(iv) });
+      cipher.start({
+        iv: forge.util.binary.raw.encode(iv),
+        tagLength: 128,
+      });
 
       cipher.update(new forge.util.ByteStringBuffer(buffer));
       cipher.finish();
 
-      const array = forge.util.binary.raw.decode(cipher.output.data);
-      return array;
+      const encrypted = forge.util.binary.raw.decode(cipher.output.data);
+      const tag = forge.util.binary.raw.decode(cipher.mode.tag.data);
+
+      const res = new Uint8Array(encrypted.length + tag.length);
+      res.set(encrypted, 0);
+      res.set(tag, encrypted.length);
+
+      return res;
     },
     toAESDecrypted(buffer: Uint8Array, iv: Uint8Array): Uint8Array {
-      const cipher = forge.cipher.createDecipher('AES-CFB', key);
+      const tag = buffer.slice(buffer.length - 16);
+      const ciphertext = buffer.slice(0, buffer.length - 16);
 
-      cipher.start({ iv: forge.util.binary.raw.encode(iv) });
+      const cipher = forge.cipher.createDecipher('AES-GCM', key);
 
-      cipher.update(new forge.util.ByteStringBuffer(buffer));
+      cipher.start({
+        iv: forge.util.binary.raw.encode(iv),
+        tagLength: 128,
+        tag: forge.util.createBuffer(
+          forge.util.binary.raw.encode(tag)
+        ),
+      });
+
+      cipher.update(new forge.util.ByteStringBuffer(ciphertext));
+      cipher.finish();
 
       const array = forge.util.binary.raw.decode(cipher.output.data);
       return array;
@@ -41,8 +60,8 @@ export async function createForgeCrypto(pubKey: string): Promise<CryptoStore> {
     },
 
     randomCipherIV(): Uint8Array {
-      const buffer = new Uint8Array(16);
-      forge.util.binary.raw.decode(forge.random.getBytesSync(16), buffer);
+      const buffer = new Uint8Array(12);
+      forge.util.binary.raw.decode(forge.random.getBytesSync(12), buffer);
 
       return buffer;
     },

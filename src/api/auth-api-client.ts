@@ -79,6 +79,25 @@ export interface LoginData extends OAuthCredential {
   mainDeviceAppVersion: string;
 }
 
+/**
+ * request Passcode Data
+ */
+export interface requestPasscodeData {
+
+  /**
+   * Passcode
+   */
+  passcode?: string;
+}
+
+export interface registerDeviceData {
+  
+  /**
+   * Next request interval in seconds
+   */
+  nextRequestIntervalInSeconds: number;
+}
+
 export interface LoginForm {
 
   email: string;
@@ -89,6 +108,19 @@ export interface LoginForm {
 export interface TokenLoginForm extends LoginForm {
 
   autowithlock: boolean;
+
+}
+
+export interface PasscodeLoginRequestForm extends RequestForm {
+
+  device: {
+
+    name?: string;
+    uuid: string;
+    model?: string;
+    osVersion?: string;
+
+  }
 
 }
 
@@ -187,6 +219,16 @@ export class AuthApiClient {
     return form;
   }
 
+  private fillPasscodeLoginForm(form: RequestForm): PasscodeLoginRequestForm {
+    form['device'] = Object.assign(
+      form['device'] ?? {},
+      { uuid: this._deviceUUID }
+    );
+
+    return form as PasscodeLoginRequestForm;
+  }
+
+
   /**
    * Login using given data.
    *
@@ -235,34 +277,49 @@ export class AuthApiClient {
    * Request passcode
    *
    * @param {LoginForm} form
+   * @param {boolean} [permanent=true] If true the device will be registered as permanent
    */
-  async requestPasscode(form: LoginForm): AsyncCommandResult {
+  async requestPasscode(form: LoginForm, permanent: boolean = true): AsyncCommandResult<requestPasscodeData> {
+    const device: Record<string, any> = { name: this._name, osVersion: this.config.osVersion ?? '' };
+    
+    if (this.config.deviceModel) {
+      device['model'] = this.config.deviceModel;
+    }
+
     const res = await this._client.requestData(
       'POST',
-      this.getApiPath('request_passcode.json'),
-      this.fillAuthForm({ ...form }),
+      this.getApiPath('passcodeLogin/generate'),
+      this.fillPasscodeLoginForm({ ...form, permanent, device }),
       await this.createAuthHeader(form),
     );
+    if (res.status !== KnownDataStatusCode.SUCCESS) return { status: res.status, success: false };
 
-    return { status: res.status, success: res.status === KnownDataStatusCode.SUCCESS };
+    return {
+      status: res.status,
+      success: true,
+      result: res.data as requestPasscodeData,
+    };
   }
 
   /**
    * Try to register device with passcode
    *
    * @param {LoginForm} form
-   * @param {string} passcode
    * @param {boolean} [permanent=true] If true the device will be registered as permanent
    */
-  async registerDevice(form: LoginForm, passcode: string, permanent = true): AsyncCommandResult {
+  async registerDevice(form: LoginForm, permanent: boolean = true): AsyncCommandResult<registerDeviceData> {
     const res = await this._client.requestData(
       'POST',
-      this.getApiPath('register_device.json'),
-      this.fillAuthForm({ ...form, passcode, permanent }),
+      this.getApiPath('passcodeLogin/registerDevice'),
+      this.fillPasscodeLoginForm({ ...form, permanent }),
       await this.createAuthHeader(form),
     );
 
-    return { status: res.status, success: res.status === KnownDataStatusCode.SUCCESS };
+    return {
+      status: res.status,
+      success: res.status === KnownDataStatusCode.SUCCESS,
+      result: res.data as registerDeviceData,
+    };
   }
 
   private async calculateXVCKey(deviceUUID: string, userAgent: string, email: string): Promise<string> {

@@ -14,7 +14,7 @@ import { LChatListRes, LoginListRes } from '../../packet/chat';
 import { AsyncCommandResult, DefaultReq, DefaultRes, KnownDataStatusCode } from '../../request';
 import { ClientConfig } from '../../config';
 import { dataStructToNormalChannelInfo, dataStructToOpenChannelInfo } from '../../packet/struct'
-import { Long } from 'bson';
+import { Long, Binary } from 'bson';
 
 export class TalkClientSession implements ClientSession {
   private _lastLoginRev: number;
@@ -46,7 +46,7 @@ export class TalkClientSession implements ClientSession {
       'maxIds': [],
       'lastTokenId': Long.ZERO,
       'lbk': 0,
-      'rp': null,
+      'rp': this.makeRP(0x00, 0x00),
       'bg': false,
     };
 
@@ -133,5 +133,21 @@ export class TalkClientSession implements ClientSession {
     const res = await this._session.request('GETTOKEN', { ts: unknown });
 
     return { status: res.status, success: res.status === KnownDataStatusCode.SUCCESS, result: res };
+  }
+
+  /**
+   * Unknown
+   * 
+   * @param {number} blockRev
+   * @param {number} plusBlockRev
+   * @returns {Binary}
+   */
+  private makeRP(blockRev: number, plusBlockRev: number): Binary {
+    const b = Buffer.alloc(6);
+    b.writeUInt16LE(blockRev & 0xffff, 0);
+    b.writeUInt16LE(0xffff, 2);
+    b.writeUInt16LE(plusBlockRev & 0xffff, 4);
+
+    return new Binary(b, 0x00);
   }
 }
