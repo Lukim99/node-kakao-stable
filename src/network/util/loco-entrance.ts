@@ -19,13 +19,14 @@ import { BiStream } from '../../stream';
  *
  * @param {BiStream} stream
  * @param {BookingConfig} config
+ * @param {Long} userId
  */
-export async function getBookingData(stream: BiStream, config: BookingConfig): AsyncCommandResult<GetConfRes> {
+export async function getBookingData(stream: BiStream, config: BookingConfig, userId: Long): AsyncCommandResult<GetConfRes> {
   const bookingSession = new LocoSession(stream);
 
   const req = {
     'MCCMNC': config.mccmnc,
-    'model': config.deviceModel,
+    'userId': userId,
     'os': config.agent,
   };
 
@@ -53,7 +54,6 @@ export async function getCheckinData(
   const req: DefaultReq = {
     'MCCMNC': config.mccmnc,
     'appVer': config.appVersion,
-    'countryISO': config.countryIso,
     'lang': config.language,
     'ntype': config.netType,
     'useSub': config.subDevice,

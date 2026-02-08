@@ -4,7 +4,8 @@
  * Copyright (c) storycraft. Licensed under the MIT Licence.
  */
 
-import { AuthApiClient, KnownAuthStatusCode } from 'node-kakao';
+import { AuthApiClient, KnownAuthStatusCode } from '../src';
+// import { AuthApiClient, KnownAuthStatusCode } from 'node-kakao';
 import * as readline from 'readline';
 
 /*
@@ -37,18 +38,23 @@ async function main() {
     throw new Error(`Web login failed with status: ${loginRes.status}`);
   }
 
-  const passcodeRes = await api.requestPasscode(form);
+  const passcodeRes = await api.requestPasscode(form, true);
   if (!passcodeRes.success) throw new Error(`Passcode request failed with status: ${passcodeRes.status}`);
 
-  const inputInterface = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  const passcode = await new Promise<string>((resolve) => inputInterface.question('Enter passcode: ', resolve));
-  inputInterface.close();
+  let registerRes = await api.registerDevice(form, true);
+  if (registerRes.status !== KnownAuthStatusCode.DEVICE_NOT_REGISTERED) {
+    throw new Error(`Device registration failed with status: ${registerRes.status}`);
+  }
 
-  // Giving permanent value to false will allow to login only once.
-  const registerRes = await api.registerDevice(form, passcode, true);
+  console.log(`Passcode: ${passcodeRes.result.passcode}`);
+
+  while (registerRes.status === KnownAuthStatusCode.DEVICE_NOT_REGISTERED) {
+     // Wait for 3 seconds before next try
+     await sleep(3000);
+
+    registerRes = await api.registerDevice(form, true);
+  }
+
   if (!registerRes.success) throw new Error(`Device registration failed with status: ${registerRes.status}`);
 
   console.log(`Device ${DEVICE_UUID} has been registered`);
@@ -59,3 +65,7 @@ async function main() {
   console.log(`Client logon successfully`);
 }
 main().then();
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}

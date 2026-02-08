@@ -43,10 +43,9 @@ async function main() {
   const loginRes = await api.login({
     email: EMAIL,
     password: PASSWORD,
-
-    // This option force login even other devices are logon
-    forced: true,
-  });
+  },
+  // This option force login even other devices are logon
+  true);
   if (!loginRes.success) throw new Error(`Web login failed with status: ${loginRes.status}`);
 
   console.log(`Received access token: ${loginRes.result.accessToken}`);

@@ -98,7 +98,7 @@ export class AxiosWebClient implements WebClient, HeaderDecorator {
 
     if (form) {
       const formData = this.convertToMultipart(form);
-      Object.assign(reqData.headers, formData.getHeaders());
+      Object.assign(reqData.headers ?? {}, formData.getHeaders());
       reqData.data = formData.getBuffer();
     }
 
