@@ -1,0 +1,32 @@
+name: v5 core
+
+on:
+  push:
+    paths:
+      - 'v5/**'
+      - '.github/workflows/v5-ci.yml'
+  pull_request:
+    paths:
+      - 'v5/**'
+      - '.github/workflows/v5-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    strategy:
+      matrix:
+        node-version: [22.x, 24.x]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: v5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: npm install
+      - run: npm run check
+      - run: npm run build

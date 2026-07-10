@@ -68,3 +68,5 @@ deno-test.ts
 
 # vim swp file
 *.swp
+
+node-kakao-v5-scaffold.patch

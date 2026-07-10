@@ -1,0 +1,23 @@
+{
+  "name": "node-kakao-v5-workspace",
+  "version": "5.0.0-alpha.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "npm run build -w @node-kakao/protocol-core && npm run build -w @node-kakao/protocol-profiles && npm run build -w @node-kakao/client-core && npm run build -w @node-kakao/testkit && npm run build -w @node-kakao/transport-node",
+    "typecheck": "npm run build -w @node-kakao/protocol-core && npm run typecheck -w @node-kakao/protocol-core && npm run typecheck -w @node-kakao/protocol-profiles && npm run typecheck -w @node-kakao/client-core && npm run typecheck -w @node-kakao/testkit && npm run typecheck -w @node-kakao/transport-node",
+    "test": "npm run test -w @node-kakao/protocol-core",
+    "check": "npm run typecheck && npm run test",
+    "clean": "npm run clean --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.3"
+  }
+}
