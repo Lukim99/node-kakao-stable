@@ -118,6 +118,13 @@ npm run bot:start
 
 The connect check performs a real login without sending chat responses. See [BOT_HOSTING.md](./BOT_HOSTING.md) for dashboard security, environment variables, persistent storage, Docker, and 24-hour Railway/Render deployment guidance. Serverless functions are not used for the long-lived LOCO connection.
 
+The private managed bot exposes feature checks through:
+`!테스트 이미지`, `!테스트 이미지묶음`, `!테스트 이모티콘`,
+`!테스트 미니이모티콘`, `!테스트 멘션`, `!테스트 외치기`, and
+`!테스트 전체`. No administrator id is required. Images are deterministic PNGs
+generated in memory, while the default emoticon and mini-emoticon values come from
+the local Android 25.8.1 capture. Environment JSON can override each fixture.
+
 ## Typed session example
 
 ```ts
@@ -194,13 +201,13 @@ Only the session's internal reader consumes the transport. Packets whose IDs mat
 
 ## Packages
 
-- `@node-kakao/protocol-core`: command types, frame/payload codecs, packet assembler, request ID allocator
-- `@node-kakao/protocol-android`: Android app 11.0.0 reference command/push schemas and isolated modern candidates
-- `@node-kakao/transport-node`: transport contract, frame reader, session, bounded async queue, typed session errors
-- `@node-kakao/testkit`: memory transport, byte helpers, and fake test server
-- `@node-kakao/protocol-profiles`: explicit historical/reference profiles with compatibility labels
-- `@node-kakao/client-core`: state machine, typed push router, reaction and Community reducers
-- `@node-kakao/client-android`: auth/device approval, request builders, bootstrap pagination, channel API, high-level `AndroidTalkClient`, and experimental reaction API
+- `@lukim9-kakao/protocol-core`: command types, frame/payload codecs, packet assembler, request ID allocator
+- `@lukim9-kakao/protocol-android`: Android reference schemas and explicitly labelled captured additions
+- `@lukim9-kakao/transport-node`: transport contract, frame reader, session, bounded async queue, typed session errors
+- `@lukim9-kakao/testkit`: memory transport, byte helpers, and fake test server
+- `@lukim9-kakao/protocol-profiles`: explicit historical/reference profiles with compatibility labels
+- `@lukim9-kakao/client-core`: state machine, typed push router, reaction and Community reducers
+- `@lukim9-kakao/client-android`: auth/device approval, bootstrap, channel API, media upload, and `AndroidTalkClient`
 
 ## High-level client
 
@@ -215,7 +222,7 @@ import {
   AndroidTalkClient,
   AndroidReactionType,
   androidKakaoTalk11SmT870ReferenceConfiguration as configuration,
-} from '@node-kakao/client-android';
+} from '@lukim9-kakao/client-android';
 
 const client = new AndroidTalkClient(configuration, {
   locoPublicKey: LOCO_PEM,                     // caller-supplied RSA public key
@@ -225,15 +232,52 @@ const client = new AndroidTalkClient(configuration, {
 client.on('error', (error) => console.error(error));
 client.on('message', (message) => console.log('message in', message.chatId.toString()));
 client.on('reaction', (reaction) => console.log('reaction counts', reaction.counts));
+client.on('voiceRoom', ({ attachment }) => console.log('voice-room event', attachment.type));
 
 const login = await client.connect(credential); // credential from AndroidAuthClient
 console.log('channels:', login.channels.length);
 
-await client.channel(Long.fromString(channelId)).sendText('hello');
+const channel = client.channel(Long.fromString(channelId));
+await channel.sendText('hello');
+await channel.sendShout('important message');
 await client.react(Long.fromString(logId), AndroidReactionType.Heart);
 
 await client.close();
 ```
+
+### Captured chat additions and media
+
+`sendEmoticon`, `sendTextWithEmojis`, and `sendShout` build the Android 25.8.1
+`WRITE` attachment shapes. Received `MSG` type 52 packets are parsed and also emitted
+as `voiceRoom` events (`vr_invite` / `vr_bye`). Starting or joining the voice media
+session is not implemented because that separate negotiation was not present in the
+LOCO capture. Shop-search payloads were also not present, so no speculative type-23
+sender is exposed.
+
+Photo upload uses the captured Android `SHIP`/`POST` fields. Audio and other media
+types retain the legacy POST fields and must not be described as capture-verified.
+Every media operation has an overall timeout and supports cancellation:
+
+```ts
+const controller = new AbortController();
+
+const photo = await client.sendMedia(
+  Long.fromString(channelId),
+  2,
+  { data: photoBytes, name: 'photo.jpg', ext: 'jpg', width: 1200, height: 900 },
+  { timeoutMs: 120_000, signal: controller.signal },
+);
+
+const grouped = await client.sendMultiMedia(
+  Long.fromString(channelId),
+  27,
+  photoForms,
+  { groupedMessage: 'photos', timeoutMs: 120_000 },
+);
+```
+
+The test suite injects memory media connections and never uploads these fixtures to
+Kakao. Passing real bytes to `AndroidTalkClient` opens ticketed network connections.
 
 Pushes without a dedicated event are still delivered through the `raw` event, never
 dropped. Connecting opens real network sockets, so it runs outside the account-free

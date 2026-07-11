@@ -47,6 +47,26 @@ function isLongOrNumberArray(value: unknown): value is (Long | number)[] {
   return Array.isArray(value) && value.every(isLongOrNumber);
 }
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(isString);
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === 'boolean';
+}
+
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || isString(value);
+}
+
+function isNullableOptionalString(value: unknown): value is string | null | undefined {
+  return value === undefined || value === null || isString(value);
+}
+
+function isMediaPostResponse(value: unknown): value is AndroidReferenceCommands['POST']['response'] {
+  return isRecord(value) && isNumber(value.status) && isNumber(value.o);
+}
+
 function isNetworkConfiguration(value: unknown): value is NetworkConfigurationDocument {
   if (!isRecord(value)) return false;
   return isNumber(value.bgKeepItv) && isNumber(value.bgReconnItv) &&
@@ -176,6 +196,72 @@ export const androidReferenceCommandSchemas = {
     validateRequest: (value: unknown): value is AndroidReferenceCommands['REACTCNT']['request'] =>
       isRecord(value) && isNumber(value.li),
   },
+  SHIP: {
+    validateRequest: (value: unknown): value is AndroidReferenceCommands['SHIP']['request'] =>
+      isRecord(value) && isLongOrNumber(value.c) && isNumber(value.s) && isNumber(value.t) &&
+      isString(value.cs) && isOptionalString(value.e) && isOptionalString(value.ex),
+    validateResponse: (value: unknown): value is AndroidReferenceCommands['SHIP']['response'] =>
+      isRecord(value) && isString(value.k) && isString(value.vh) && isString(value.vh6) &&
+      isNumber(value.p) && isBoolean(value.rd) && (value.status === undefined || isNumber(value.status)),
+  },
+  MSHIP: {
+    validateRequest: (value: unknown): value is AndroidReferenceCommands['MSHIP']['request'] =>
+      isRecord(value) && isLongOrNumber(value.c) && isNumberArray(value.sl) &&
+      isNumber(value.t) && isStringArray(value.csl) &&
+      (value.el === undefined || isStringArray(value.el)),
+    validateResponse: (value: unknown): value is AndroidReferenceCommands['MSHIP']['response'] =>
+      isRecord(value) && isStringArray(value.kl) && isStringArray(value.mtl) &&
+      isStringArray(value.vhl) && isStringArray(value.vh6l) && isNumberArray(value.pl) &&
+      isBoolean(value.rd) && (value.status === undefined || isNumber(value.status)),
+  },
+  POST: {
+    validateRequest: (value: unknown): value is AndroidReferenceCommands['POST']['request'] =>
+      isRecord(value) && isString(value.k) && isNumber(value.t) && isNumber(value.s) &&
+      isLongOrNumber(value.u) && isLongOrNumber(value.c) && isLongOrNumber(value.mid) &&
+      (value.w === undefined || isNumber(value.w)) && (value.h === undefined || isNumber(value.h)) &&
+      isString(value.mm) && isNumber(value.nt) && value.os === 'android' && isString(value.av) &&
+      isOptionalString(value.ex) && isNullableOptionalString(value.f) &&
+      isNullableOptionalString(value.sp) && (value.dt === undefined || isNumber(value.dt)) &&
+      (value.scp === undefined || isNumber(value.scp)) &&
+      isBoolean(value.ns),
+    validateResponse: isMediaPostResponse,
+  },
+  MPOST: {
+    validateRequest: (value: unknown): value is AndroidReferenceCommands['MPOST']['request'] =>
+      isRecord(value) && isString(value.k) && isNumber(value.t) && isNumber(value.s) &&
+      isLongOrNumber(value.u) && isString(value.mm) && isNumber(value.nt) &&
+      value.os === 'android' && isString(value.av) && isNumber(value.dt) && isNumber(value.scp),
+    validateResponse: isMediaPostResponse,
+  },
+  MINI: {
+    validateRequest: (value: unknown): value is AndroidReferenceCommands['MINI']['request'] =>
+      isRecord(value) && isString(value.k) && isLongOrNumber(value.u) && isNumber(value.o) &&
+      isString(value.mm) && isNumber(value.nt) && value.os === 'android' && isString(value.av) &&
+      isLongOrNumber(value.c),
+    validateResponse: (value: unknown): value is AndroidReferenceCommands['MINI']['response'] =>
+      isRecord(value) && isNumber(value.status) && isNumber(value.s),
+  },
+  DOWN: {
+    validateRequest: (value: unknown): value is AndroidReferenceCommands['DOWN']['request'] =>
+      isRecord(value) && isString(value.k) && isLongOrNumber(value.u) && isNumber(value.o) &&
+      isString(value.mm) && isNumber(value.nt) && value.os === 'android' && isString(value.av) &&
+      isLongOrNumber(value.c) && isBoolean(value.rt),
+    validateResponse: (value: unknown): value is AndroidReferenceCommands['DOWN']['response'] =>
+      isRecord(value) && isNumber(value.status) && isNumber(value.s),
+  },
+  GETTRAILER: {
+    validateRequest: (value: unknown): value is AndroidReferenceCommands['GETTRAILER']['request'] =>
+      isRecord(value) && isString(value.k) && isNumber(value.t),
+    validateResponse: (value: unknown): value is AndroidReferenceCommands['GETTRAILER']['response'] =>
+      isRecord(value) && isString(value.vh) && isString(value.vh6) && isNumber(value.p) &&
+      isBoolean(value.rd) && (value.status === undefined || isNumber(value.status)),
+  },
+  MCHKTOKENS: {
+    validateRequest: (value: unknown): value is AndroidReferenceCommands['MCHKTOKENS']['request'] =>
+      isRecord(value) && isNumberArray(value.ts) && isStringArray(value.ks),
+    validateResponse: (value: unknown): value is AndroidReferenceCommands['MCHKTOKENS']['response'] =>
+      isRecord(value) && Array.isArray(value.eks) && (value.status === undefined || isNumber(value.status)),
+  },
 } satisfies LocoCommandSchemas<AndroidReferenceCommands>;
 
 export const androidReferencePushSchemas = {
@@ -203,5 +289,12 @@ export const androidReferencePushSchemas = {
   KICKOUT: {
     validate: (value: unknown): value is AndroidReferencePushes['KICKOUT'] =>
       isRecord(value) && isNumber(value.reason),
+  },
+  COMPLETE: {
+    validate: (value: unknown): value is AndroidReferencePushes['COMPLETE'] =>
+      isRecord(value) && isNumber(value.status) &&
+      (value.chatLog === undefined || isChatlogDocument(value.chatLog)) &&
+      (value.li === undefined || isNumber(value.li)) &&
+      (value.noSeen === undefined || isBoolean(value.noSeen)),
   },
 } satisfies LocoPushSchemas<AndroidReferencePushes>;

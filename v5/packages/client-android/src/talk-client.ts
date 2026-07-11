@@ -10,6 +10,7 @@ import {
 } from '@lukim9-kakao/transport-node';
 import {
   parseFeed,
+  parseAndroidVoiceRoomEvent,
   parseReactionMeta,
   serializeChatLogInfos,
   type AndroidFeed,
@@ -22,11 +23,19 @@ import {
   type ReactionMetaPush,
   type ReadWatermarkPush,
   type SyncLinkProfilePush,
+  type AndroidVoiceRoomEvent,
 } from '@lukim9-kakao/protocol-android';
 import type { AndroidClientConfiguration, AndroidSessionCredential, AndroidLoginCursor } from './configuration.js';
 import { AndroidReferenceBootstrap, type AndroidLoginResult } from './bootstrap.js';
 import { createAndroidReferenceSession } from './session.js';
-import { AndroidChannelSession } from './channel-session.js';
+import { AndroidChannelSession, AndroidMessageIdSequence } from './channel-session.js';
+import {
+  sendMedia,
+  sendMultiMedia,
+  type AndroidMediaUploadContext,
+  type AndroidMediaUploadForm,
+  type AndroidMediaSendOptions,
+} from './media-upload.js';
 
 export interface AndroidTalkClientOptions {
   /** Kakao LOCO RSA public key (caller-supplied; the legacy PEM is server-accepted). */
@@ -42,6 +51,8 @@ export interface AndroidTalkClientOptions {
 
 export interface AndroidTalkClientEventMap {
   message: [MessagePush, LocoPacket];
+  /** Received voice-room invite/end metadata (MSG type 52). */
+  voiceRoom: [AndroidVoiceRoomEvent, LocoPacket];
   read: [ReadWatermarkPush];
   left: [ChannelLeftPush];
   reaction: [ParsedReaction];
@@ -66,6 +77,8 @@ export interface AndroidTalkClientEventMap {
  */
 export class AndroidTalkClient extends EventEmitter {
   private session: LocoSession<AndroidReferenceCommands> | undefined;
+  private clientUserId: Long | number | undefined;
+  private readonly messageIds = new AndroidMessageIdSequence();
   private consumeTask: Promise<void> | undefined;
   private pingTimer: ReturnType<typeof setInterval> | undefined;
   private readonly bookingHost: string;
@@ -106,12 +119,14 @@ export class AndroidTalkClient extends EventEmitter {
     const loginSecure = new LocoSecureTransport(loginTcp, { publicKey: this.options.locoPublicKey });
     const session = createAndroidReferenceSession(loginSecure, { validate: false });
     this.session = session;
+    this.clientUserId = credential.userId;
 
     let loginResult: AndroidLoginResult;
     try {
       loginResult = await bootstrap.login(session, credential, cursor);
     } catch (error) {
       this.session = undefined;
+      this.clientUserId = undefined;
       await session.close().catch(() => undefined);
       throw error;
     }
@@ -171,7 +186,7 @@ export class AndroidTalkClient extends EventEmitter {
         const decoded = codec.decode(packet.dataType, packet.payload);
         switch (packet.header.method) {
           case 'MSG':
-            this.emit('message', decoded as MessagePush, packet);
+            this.emitMessage(decoded as MessagePush, packet);
             break;
           case 'DECUNREAD':
             this.emit('read', decoded as ReadWatermarkPush);
@@ -206,6 +221,7 @@ export class AndroidTalkClient extends EventEmitter {
     } finally {
       if (this.session === session) {
         this.session = undefined;
+        this.clientUserId = undefined;
         this.stopKeepAlive();
         this.emit('close');
       }
@@ -227,6 +243,12 @@ export class AndroidTalkClient extends EventEmitter {
     }
   }
 
+  private emitMessage(message: MessagePush, packet: LocoPacket): void {
+    this.emit('message', message, packet);
+    const voiceRoom = parseAndroidVoiceRoomEvent(message.chatLog);
+    if (voiceRoom !== undefined) this.emit('voiceRoom', voiceRoom, packet);
+  }
+
   private stopKeepAlive(): void {
     if (this.pingTimer !== undefined) {
       clearInterval(this.pingTimer);
@@ -237,7 +259,58 @@ export class AndroidTalkClient extends EventEmitter {
   /** Returns a channel handle bound to the live login session. */
   public channel(channelId: Long): AndroidChannelSession {
     if (this.session === undefined) throw new Error('AndroidTalkClient is not connected');
-    return new AndroidChannelSession(this.session, channelId);
+    return new AndroidChannelSession(this.session, channelId, this.messageIds);
+  }
+
+  private mediaContext(): AndroidMediaUploadContext {
+    if (this.clientUserId === undefined) throw new Error('AndroidTalkClient is not connected');
+    return {
+      publicKey: this.options.locoPublicKey,
+      userId: this.clientUserId,
+      appVersion: this.configuration.kakaoTalkAppVersion,
+      networkType: this.configuration.networkType,
+      mccmnc: this.configuration.mccmnc,
+    };
+  }
+
+  /**
+   * Uploads one media file and posts it to the channel, returning the finalized
+   * chatlog. `type` is a ChatType (2 photo, 5 audio, 18 file…). The binary transfer
+   * runs over a fresh secure connection to the ticketed media host.
+   */
+  public async sendMedia(
+    channelId: Long,
+    type: number,
+    form: AndroidMediaUploadForm,
+    options: AndroidMediaSendOptions = {},
+  ): Promise<ChatlogDocument> {
+    return sendMedia({
+      controlSession: this.requireSession(),
+      context: this.mediaContext(),
+      channelId,
+      type,
+      form,
+      options,
+      messageId: this.messageIds.next(),
+    });
+  }
+
+  /** Uploads several media files and sends them as one grouped message (type 27 for photos). */
+  public async sendMultiMedia(
+    channelId: Long,
+    type: number,
+    forms: readonly AndroidMediaUploadForm[],
+    options: AndroidMediaSendOptions = {},
+  ): Promise<ChatlogDocument> {
+    return sendMultiMedia({
+      controlSession: this.requireSession(),
+      context: this.mediaContext(),
+      channelId,
+      type,
+      forms,
+      options,
+      messageId: this.messageIds.next(),
+    });
   }
 
   /** Adds or changes the current user's reaction on a message (see AndroidReactionType). */
@@ -341,6 +414,7 @@ export class AndroidTalkClient extends EventEmitter {
   public async close(): Promise<void> {
     const session = this.session;
     this.session = undefined;
+    this.clientUserId = undefined;
     this.stopKeepAlive();
     if (session !== undefined) await session.close().catch(() => undefined);
     await this.consumeTask?.catch(() => undefined);

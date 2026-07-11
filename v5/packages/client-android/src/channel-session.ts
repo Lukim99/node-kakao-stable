@@ -20,6 +20,32 @@ export interface AndroidSyncRange {
   readonly countHint?: number;
 }
 
+/** Emoticon/sticker attachment. Android 25.8.1 sends these as WRITE type 20; other kinds use 6/12/25. */
+export interface AndroidEmoticonAttachment {
+  readonly path: string;
+  readonly name: string;
+  readonly type: string;
+  readonly sound?: string;
+  readonly width?: number;
+  readonly height?: number;
+}
+
+/** Inline mini-emoji descriptor carried in a text message's `emojis` attachment. */
+export interface AndroidInlineEmojis {
+  readonly total_item: number;
+  readonly total_len: number;
+  readonly items: readonly {
+    readonly id: string;
+    readonly len: number;
+    readonly at: readonly number[];
+  }[];
+}
+
+export interface AndroidMentionUser {
+  readonly userId: Long;
+  readonly nickname: string;
+}
+
 export class AndroidMessageIdSequence {
   private current: number;
 
@@ -63,6 +89,52 @@ export class AndroidChannelSession {
 
   public async sendText(text: string, type = 1): Promise<WriteResponse> {
     return await this.send({ type, text });
+  }
+
+  /** Sends the Android 25.8.1 shout attachment (`WRITE` type 1). */
+  public async sendShout(text: string): Promise<WriteResponse> {
+    return await this.send({ type: 1, text, attachmentJson: '{"shout":true}' });
+  }
+
+  /** Sends an emoticon/sticker. `chatType` defaults to 20 (animated); use 6/12/25 for other kinds. */
+  public async sendEmoticon(emoticon: AndroidEmoticonAttachment, chatType = 20): Promise<WriteResponse> {
+    return await this.send({ type: chatType, text: '', attachmentJson: JSON.stringify(emoticon) });
+  }
+
+  /** Sends text carrying inline mini-emojis (the `emojis` attachment observed on Android 25.8.1). */
+  public async sendTextWithEmojis(text: string, emojis: AndroidInlineEmojis): Promise<WriteResponse> {
+    return await this.send({ type: 1, text, attachmentJson: JSON.stringify({ emojis }) });
+  }
+
+  /**
+   * Sends a text message with @mentions. Pass an ordered list of plain strings and
+   * mention targets; the text and mention offsets are built for you. The mention wire
+   * shape is legacy-derived (`mentions:[{user_id,len,at}]`) and not re-verified on 25.8.1.
+   */
+  public async sendMention(
+    segments: readonly (string | AndroidMentionUser)[],
+  ): Promise<WriteResponse> {
+    let text = '';
+    const mentions: { userId: Long; len: number; at: number[] }[] = [];
+    for (const segment of segments) {
+      if (typeof segment === 'string') {
+        text += segment;
+        continue;
+      }
+      const lastAt = Math.max(0, ...mentions.flatMap((m) => m.at));
+      let entry = mentions.find((m) => m.userId.eq(segment.userId) && m.len === segment.nickname.length);
+      if (entry === undefined) {
+        entry = { userId: segment.userId, len: segment.nickname.length, at: [] };
+        mentions.push(entry);
+      }
+      entry.at.push(lastAt + 1);
+      text += `@${segment.nickname}`;
+    }
+    // Build the JSON manually so user_id stays an exact integer literal (it can exceed 2^53).
+    const mentionsJson = `[${mentions
+      .map((m) => `{"user_id":${m.userId.toString()},"len":${m.len},"at":[${m.at.join(',')}]}`)
+      .join(',')}]`;
+    return await this.send({ type: 1, text, attachmentJson: `{"mentions":${mentionsJson}}` });
   }
 
   public async deleteMessage(logId: Long): Promise<void> {

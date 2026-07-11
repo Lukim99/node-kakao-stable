@@ -19,6 +19,22 @@ import type {
 } from './types.js';
 import type { ReactRequest, ReactResponse } from './reactions.js';
 import type {
+  GetTrailerRequest,
+  GetTrailerResponse,
+  MediaCheckTokensRequest,
+  MediaCheckTokensResponse,
+  MediaCompletePush,
+  MediaPostRequest,
+  MediaPostResponse,
+  MediaMultiPostRequest,
+  MediaTransferRequest,
+  MediaTransferResponse,
+  MShipRequest,
+  MShipResponse,
+  ShipRequest,
+  ShipResponse,
+} from './media.js';
+import type {
   CreateOpenLinkRequest,
   CreateOpenLinkResponse,
   KickMemberRequest,
@@ -59,6 +75,15 @@ export interface AndroidReferenceCommands {
   SETMEMTYPE: { request: SetMemberTypeRequest; response: SetMemberTypeResponse };
   CREATELINK: { request: CreateOpenLinkRequest; response: CreateOpenLinkResponse };
   REACTCNT: { request: ReactionCountRequest; response: ReactionCountResponse };
+  // Media (image/audio/file) upload & download control, confirmed on Android 25.8.1.
+  SHIP: { request: ShipRequest; response: ShipResponse };
+  MSHIP: { request: MShipRequest; response: MShipResponse };
+  POST: { request: MediaPostRequest; response: MediaPostResponse };
+  MPOST: { request: MediaMultiPostRequest; response: MediaPostResponse };
+  MINI: { request: MediaTransferRequest; response: MediaTransferResponse };
+  DOWN: { request: MediaTransferRequest; response: MediaTransferResponse };
+  GETTRAILER: { request: GetTrailerRequest; response: GetTrailerResponse };
+  MCHKTOKENS: { request: MediaCheckTokensRequest; response: MediaCheckTokensResponse };
 }
 
 export interface AndroidReferencePushes {
@@ -71,4 +96,5 @@ export interface AndroidReferencePushes {
   KICKOUT: { readonly reason: number };
   CHANGESVR: Readonly<Record<string, unknown>>;
   BLSYNC: Readonly<Record<string, unknown>>;
+  COMPLETE: MediaCompletePush;
 }

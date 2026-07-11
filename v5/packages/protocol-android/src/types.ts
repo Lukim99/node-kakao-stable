@@ -178,6 +178,9 @@ export interface WriteRequest {
   readonly noSeen: boolean;
   readonly msg?: string;
   readonly extra?: string;
+  /** 1 for ordinary chat, 3 for a community comment. */
+  readonly scope?: number;
+  readonly threadId?: LocoId;
 }
 
 export interface WriteResponse {

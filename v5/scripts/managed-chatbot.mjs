@@ -4,8 +4,9 @@ import { dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MemberHistoryStore } from './bot/member-history-store.mjs';
 import { ManagedLegacyBot } from './bot/managed-legacy-bot.mjs';
-import { createLiveBotConnection } from './bot/live-client-factory.mjs';
+import { createLiveBotConnection, loadBotEnvironment } from './bot/live-client-factory.mjs';
 import { createBotControlServer } from './bot/control-server.mjs';
+import { createBotFeatureTestCommands } from './bot/feature-test-commands.mjs';
 
 if (!process.argv.includes('--allow-live')) {
   throw new Error('Refusing live bot connection without --allow-live');
@@ -21,12 +22,15 @@ function log(event, details = {}) {
   process.stdout.write(`${JSON.stringify({ ts: new Date().toISOString(), event, ...details })}\n`);
 }
 
+const environment = await loadBotEnvironment(repository);
 const historyStore = new MemberHistoryStore(dataDirectory, { maximumEvents: 50 });
+const featureTests = createBotFeatureTestCommands({ workspace, environment, log });
 const controller = new ManagedLegacyBot({
   historyStore,
   statePath,
   log,
-  createConnection: async () => await createLiveBotConnection({ workspace, repository, log }),
+  featureTests,
+  createConnection: async () => await createLiveBotConnection({ workspace, repository, environment, log }),
 });
 
 if (process.argv.includes('--connect-check')) {

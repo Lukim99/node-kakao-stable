@@ -49,10 +49,42 @@ For remote hosting, configure secrets in the hosting provider rather than upload
 | `BOT_DATA_DIR` | Member history directory |
 | `BOT_STATE_PATH` | Persisted On/Off state file |
 | `KAKAO_ADVERTISEMENT_ID` | Needed only by features that require an ad id |
+| `BOT_TEST_IMAGE_JSON` | Optional single-image override: `{"path":"...","width":1200,"height":900}` |
+| `BOT_TEST_IMAGES_JSON` | Optional grouped-image override containing at least two image fixtures |
+| `BOT_TEST_EMOTICON_JSON` | Optional captured emoticon override (`path`, `name`, `type`, `chatType`) |
+| `BOT_TEST_MINI_EMOTICON_JSON` | Optional captured mini-emoticon override |
+| `BOT_TEST_MEDIA_TIMEOUT_MS` | Overall image upload timeout; default 120000 |
+| `BOT_TEST_MAX_FILE_BYTES` | Maximum bytes read for one test image; default 20 MiB |
 
 Instead of account/password login, `KAKAO_USER_ID`, `KAKAO_DEVICE_UUID`, and `KAKAO_ACCESS_TOKEN` can provide an issued credential. Password login is preferable when the registered device remains valid because it obtains a fresh access token.
 
 Never expose the dashboard directly without HTTPS and `BOT_ADMIN_TOKEN`. The dashboard keeps the token in browser `sessionStorage` and sends it as an `Authorization: Bearer` header; it is not placed in a URL or cookie.
+
+### Feature-test commands
+
+The commands are `!테스트 도움말`, `!테스트 이미지`, `!테스트 이미지묶음`,
+`!테스트 이모티콘`, `!테스트 미니이모티콘`, `!테스트 멘션`,
+`!테스트 외치기`, and `!테스트 전체`. They intentionally have no user-id check
+because this bot is operated in a private room; do not enable it in an untrusted room.
+
+No fixture variables are required. The bot generates three checkerboard PNGs in
+memory and uses the emoticon/mini-emoticon attachment values captured from Android
+25.8.1. The following values are optional overrides for a different fixture:
+
+Example `.env.local` values (use captured identifiers belonging to your own test):
+
+```dotenv
+BOT_TEST_IMAGE_JSON={"path":"test-assets/photo.jpg","width":1200,"height":900,"ext":"jpg"}
+BOT_TEST_IMAGES_JSON=[{"path":"test-assets/a.jpg","width":1200,"height":900,"ext":"jpg"},{"path":"test-assets/b.jpg","width":1200,"height":900,"ext":"jpg"}]
+BOT_TEST_EMOTICON_JSON={"path":"captured/path.webp","name":"(test)","type":"xcon","chatType":20}
+BOT_TEST_MINI_EMOTICON_JSON={"text":"mini","emojis":{"total_item":1,"total_len":1,"items":[{"id":"captured-id","len":1,"at":[0]}]}}
+```
+
+Relative image paths resolve from the `v5` directory. On Railway, place persistent
+fixtures on the mounted volume and use absolute paths such as `/app/data/test.jpg`.
+`!테스트 전체` prepares all image fixtures before sending the first item. Mention
+tests target the command author and use the received nickname;
+`BOT_TEST_MENTION_NICKNAME` is available only as a fallback.
 
 ## Railway deployment
 

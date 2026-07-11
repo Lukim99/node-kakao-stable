@@ -3,5 +3,7 @@ export * from './bootstrap.js';
 export * from './channel-session.js';
 export * from './configuration.js';
 export * from './experimental-reactions.js';
+export * from './media-errors.js';
+export * from './media-upload.js';
 export * from './session.js';
 export * from './talk-client.js';

@@ -202,3 +202,37 @@ test('managed bot also kicks on the twenty-fifth message inside ten seconds', as
   assert.equal(client.kicked[0].memberId.toString(), '8');
   await waitFor(() => bot.status().counters.spamKicks === 1);
 });
+
+test('managed bot routes configured feature commands before suppressing self messages', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'node-kakao-feature-route-'));
+  t.after(async () => await rm(directory, { recursive: true, force: true }));
+  const client = new FakeTalkClient();
+  const handled = [];
+  const bot = new ManagedLegacyBot({
+    historyStore: new MemberHistoryStore(join(directory, 'members')),
+    statePath: join(directory, 'state.json'),
+    reconnectDelaysMs: [1_000],
+    featureTests: {
+      handle: async context => {
+        handled.push(context.message.chatLog.message);
+        return { command: 'all', actions: 6 };
+      },
+    },
+    createConnection: async () => ({
+      client,
+      credential: { userId: Long.fromNumber(99), deviceUuid: 'fixture', accessToken: 'fixture' },
+    }),
+  });
+  t.after(async () => await bot.close());
+  await bot.start();
+
+  client.emit('message', {
+    chatId: Long.fromNumber(11),
+    chatLog: { authorId: Long.fromNumber(99), message: '!테스트 전체' },
+  });
+  await waitFor(() => handled.length === 1);
+  assert.deepEqual(handled, ['!테스트 전체']);
+  assert.equal(bot.status().featureTestsEnabled, true);
+  assert.equal(bot.status().counters.featureTests, 6);
+  assert.equal(bot.status().counters.replies, 6);
+});

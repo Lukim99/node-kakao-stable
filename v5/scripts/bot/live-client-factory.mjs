@@ -8,7 +8,7 @@ import {
 } from '@lukim9-kakao/client-android';
 import { androidReferenceLocoPublicKeyPem } from '@lukim9-kakao/protocol-profiles';
 
-function parseEnvironment(source) {
+export function parseEnvironment(source) {
   const values = {};
   for (const line of source.split(/\r?\n/)) {
     const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
@@ -59,6 +59,13 @@ export async function loadLocoPublicKey(repository, environment) {
   return androidReferenceLocoPublicKeyPem;
 }
 
+export async function loadBotEnvironment(repository) {
+  const fileEnvironment = parseEnvironment(
+    await optionalText(resolve(repository, '.env.local')) ?? '',
+  );
+  return { ...fileEnvironment, ...process.env };
+}
+
 function storedCredential(value, environment) {
   const userId = environment.KAKAO_USER_ID ?? value?.userId;
   const deviceUuid = environment.KAKAO_DEVICE_UUID ?? value?.deviceUuid;
@@ -69,11 +76,8 @@ function storedCredential(value, environment) {
   return { userId: Long.fromString(userId), deviceUuid, accessToken };
 }
 
-export async function createLiveBotConnection({ workspace, repository, log = () => undefined }) {
-  const fileEnvironment = parseEnvironment(
-    await optionalText(resolve(repository, '.env.local')) ?? '',
-  );
-  const environment = { ...fileEnvironment, ...process.env };
+export async function createLiveBotConnection({ workspace, repository, environment: suppliedEnvironment, log = () => undefined }) {
+  const environment = suppliedEnvironment ?? await loadBotEnvironment(repository);
   const stored = await optionalJson(join(workspace, '.live-auth-credential.json'));
   const fallbackCredential = storedCredential(stored, environment);
   const deviceUuid = environment.KAKAO_DEVICE_UUID ?? fallbackCredential?.deviceUuid;

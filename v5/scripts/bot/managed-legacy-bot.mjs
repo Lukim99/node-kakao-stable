@@ -56,6 +56,7 @@ export class ManagedLegacyBot {
     messages: 0,
     replies: 0,
     spamKicks: 0,
+    featureTests: 0,
     errors: 0,
   };
 
@@ -64,6 +65,7 @@ export class ManagedLegacyBot {
     this.historyStore = options.historyStore;
     this.statePath = options.statePath;
     this.log = options.log ?? (() => undefined);
+    this.featureTests = options.featureTests;
     this.now = options.now ?? (() => Date.now());
     this.spamRules = options.spamRules ?? [
       { windowMs: 1_000, messageThreshold: 4 },
@@ -121,6 +123,7 @@ export class ManagedLegacyBot {
       connected: this.#client?.connected ?? false,
       startedAt: this.#startedAt,
       initialChannelCount: this.#initialChannelCount,
+      featureTestsEnabled: this.featureTests !== undefined,
       reconnectAttempt: this.#reconnectAttempt,
       lastError: this.#lastError,
       counters: { ...this.#counters },
@@ -259,10 +262,31 @@ export class ManagedLegacyBot {
     const chatLog = message.chatLog;
     if (chatLog === undefined) return;
     const authorId = toLong(chatLog.authorId);
+    const text = chatLog.message;
+    if (this.featureTests !== undefined && typeof text === 'string') {
+      try {
+        const result = await this.featureTests.handle({
+          client,
+          channel: this.#channelFor(client, message.chatId),
+          message,
+          selfUserId: this.#credential?.userId,
+        });
+        if (result !== undefined) {
+          this.#counters.replies += result.actions;
+          this.#counters.featureTests += result.actions;
+          return;
+        }
+      } catch (error) {
+        this.#recordHandlerError('feature-test-error', error);
+        await this.#channelFor(client, message.chatId)
+          .sendText('❌ 기능 테스트에 실패했습니다. 서버 로그를 확인해주세요.')
+          .catch(replyError => this.#recordHandlerError('feature-test-error-reply', replyError));
+        return;
+      }
+    }
     const selfUserId = this.#credential?.userId;
     if (selfUserId !== undefined && authorId.equals(toLong(selfUserId))) return;
     if (await this.#moderateSpam(client, message, authorId)) return;
-    const text = chatLog.message;
     if (typeof text !== 'string') return;
     try {
       if (text === '!ping') {

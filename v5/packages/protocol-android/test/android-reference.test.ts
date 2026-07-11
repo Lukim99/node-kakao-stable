@@ -12,6 +12,7 @@ import {
   OpenChannelUserPerm,
   parseReactionMeta,
   parseFeed,
+  parseAndroidVoiceRoomEvent,
   serializeChatLogInfos,
   type AndroidReferenceCommands,
 } from '../src/index.js';
@@ -168,6 +169,54 @@ test('open-chat host command schemas match the Android 25.8.1 capture', () => {
 test('serializeChatLogInfos keeps big-int logIds as numeric literals', () => {
   const out = serializeChatLogInfos([{ logId: Long.fromString('3882095456451504129'), type: 1 }]);
   assert.equal(out, '[{"logId":3882095456451504129,"type":1}]');
+});
+
+test('media upload command schemas match the Android 25.8.1 capture', () => {
+  const c = Long.fromNumber(2001);
+  assert.equal(androidReferenceCommandSchemas.SHIP?.validateRequest?.(
+    { c, s: 1024, t: 2, cs: 'checksum' }), true);
+  assert.equal(androidReferenceCommandSchemas.MSHIP?.validateRequest?.(
+    { c, sl: [1024, 2048], t: 2, csl: ['a', 'b'] }), true);
+  assert.equal(androidReferenceCommandSchemas.GETTRAILER?.validateRequest?.(
+    { k: 'key', t: 2 }), true);
+  assert.equal(androidReferenceCommandSchemas.MCHKTOKENS?.validateRequest?.(
+    { ts: [1], ks: ['k'] }), true);
+  assert.equal(androidReferenceCommandSchemas.SHIP?.validateRequest?.({ c, s: 1024, t: 2 }), false);
+  assert.equal(androidReferenceCommandSchemas.POST?.validateRequest?.({
+    u: 1, k: 'key', t: 2, s: 1024, c, mid: 7, w: 10, h: 20,
+    mm: '450', nt: 0, os: 'android', av: '25.8.1', ex: '{"cmt":""}',
+    f: null, sp: null, ns: false, dt: 1, scp: 1,
+  }), true);
+  assert.equal(androidReferenceCommandSchemas.MPOST?.validateRequest?.({
+    u: 1, k: 'key', t: 27, s: 1024, mm: '450', nt: 0,
+    os: 'android', av: '25.8.1', dt: 1, scp: 1,
+  }), true);
+  assert.equal(androidReferencePushSchemas.COMPLETE?.validate({ status: 0 }), true);
+  assert.equal(androidReferencePushSchemas.COMPLETE?.validate({}), false);
+});
+
+test('voice-room parser accepts captured MSG type 52 lifecycle attachments', () => {
+  const base = {
+    logId: Long.fromNumber(10),
+    chatId: Long.fromNumber(20),
+    type: 52,
+    authorId: Long.ONE,
+    message: '',
+    sendAt: 1,
+    msgId: 2,
+    prevId: Long.ZERO,
+  };
+  const invite = parseAndroidVoiceRoomEvent({
+    ...base,
+    attachment: JSON.stringify({
+      type: 'vr_invite', csIP: '127.0.0.1', csIP6: '::1', csPort: 1000,
+      callId: 'synthetic-call', duration: 0,
+    }),
+  });
+  assert.equal(invite?.attachment.type, 'vr_invite');
+  assert.equal(invite?.attachment.duration, 0);
+  assert.equal(parseAndroidVoiceRoomEvent({ ...base, type: 1, attachment: '{}' }), undefined);
+  assert.equal(parseAndroidVoiceRoomEvent({ ...base, attachment: '{invalid' }), undefined);
 });
 
 test('message push schema validates BSON Long identifiers and chatlog structure', () => {
