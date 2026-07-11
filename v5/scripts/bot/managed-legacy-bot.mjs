@@ -9,12 +9,10 @@ export const VIEWMORE = ('\u200e'.repeat(500));
 
 export const WELCOME_MESSAGE = `💯 우리방은 진짜 매칭이 됩니다!
 
-
 📌 소개 신청 방법
 오른쪽 상단 메뉴(☰)에서 공지사항을 클릭해 확인해주세요 ✨
 공지에 신청 링크가 있어요!
 (10초면 완료💌)
-
 
 ❤️ 채팅방 하트(♡)도 꼭 눌러주세요 :)
 궁금한 점은 신청 후 물어보시면 돼요😄`;
@@ -40,6 +38,9 @@ export class ManagedLegacyBot {
   #client;
   #credential;
   #channels = new Map();
+  #messageWindows = new Map();
+  #spamKickSuppressed = new Set();
+  #lastSpamSweep = 0;
   #operation = Promise.resolve();
   #reconnectTimer;
   #reconnectAttempt = 0;
@@ -49,13 +50,22 @@ export class ManagedLegacyBot {
   #lastError;
   #initialChannelCount = 0;
   #responsesEnabled = true;
-  #counters = { joins: 0, leaves: 0, messages: 0, replies: 0, errors: 0 };
+  #counters = { joins: 0, leaves: 0, messages: 0, replies: 0, spamKicks: 0, errors: 0 };
 
   constructor(options) {
     this.createConnection = options.createConnection;
     this.historyStore = options.historyStore;
     this.statePath = options.statePath;
     this.log = options.log ?? (() => undefined);
+    this.now = options.now ?? (() => Date.now());
+    this.spamWindowMs = options.spamWindowMs ?? 1_000;
+    this.spamMessageThreshold = options.spamMessageThreshold ?? 5;
+    if (!Number.isSafeInteger(this.spamWindowMs) || this.spamWindowMs < 1) {
+      throw new RangeError('spamWindowMs must be a positive safe integer');
+    }
+    if (!Number.isSafeInteger(this.spamMessageThreshold) || this.spamMessageThreshold < 2) {
+      throw new RangeError('spamMessageThreshold must be a safe integer of at least 2');
+    }
     this.reconnectDelaysMs = options.reconnectDelaysMs ?? [1_000, 2_000, 5_000, 10_000, 30_000];
     if (!Array.isArray(this.reconnectDelaysMs) || this.reconnectDelaysMs.length === 0 ||
       this.reconnectDelaysMs.some(delay => !Number.isSafeInteger(delay) || delay < 0)) {
@@ -124,6 +134,7 @@ export class ManagedLegacyBot {
       this.#credential = connection.credential;
       this.#client = client;
       this.#channels.clear();
+      this.#clearSpamTracking();
       this.#attach(client);
       const login = await client.connect(connection.credential);
       if (this.#client !== client) throw new Error('Bot connection was replaced during login');
@@ -151,6 +162,7 @@ export class ManagedLegacyBot {
     this.#client = undefined;
     this.#credential = undefined;
     this.#channels.clear();
+    this.#clearSpamTracking();
     if (client === undefined) {
       this.#state = 'off';
       return this.status();
@@ -174,14 +186,17 @@ export class ManagedLegacyBot {
       if (this.#client !== client) return;
       this.#client = undefined;
       this.#channels.clear();
+      this.#clearSpamTracking();
       this.#state = 'off';
       this.log('bot-disconnected');
       this.#scheduleReconnect();
     });
     client.on('memberJoin', (feed, channelId) => {
+      for (const memberId of feed.memberIds) this.#clearSpamMember(channelId, memberId);
       if (this.#responsesEnabled) void this.#onJoin(client, feed, channelId);
     });
-    client.on('memberLeave', (feed, _channelId) => {
+    client.on('memberLeave', (feed, channelId) => {
+      for (const memberId of feed.memberIds) this.#clearSpamMember(channelId, memberId);
       if (this.#responsesEnabled) void this.#onLeave(feed);
     });
     client.on('message', message => {
@@ -202,7 +217,7 @@ export class ManagedLegacyBot {
             const historyText = formatHistory(history.previousEvents);
             text = `🔄 ${nickname}님은 ${history.entryNumber}번째 입장입니다!\n\n${WELCOME_MESSAGE}`;
             if (historyText.length > 0) {
-              text += `\n\n${VIEWMORE}\n\n📋 입퇴장 로그\n${historyText}`;
+              text += `\n${VIEWMORE}\n📋 입퇴장 로그\n${historyText}`;
             }
           }
         }
@@ -232,10 +247,13 @@ export class ManagedLegacyBot {
   async #onMessage(client, message) {
     this.#counters.messages += 1;
     const chatLog = message.chatLog;
-    const text = chatLog?.message;
-    if (typeof text !== 'string') return;
+    if (chatLog === undefined) return;
+    const authorId = toLong(chatLog.authorId);
     const selfUserId = this.#credential?.userId;
-    if (selfUserId !== undefined && toLong(chatLog.authorId).equals(toLong(selfUserId))) return;
+    if (selfUserId !== undefined && authorId.equals(toLong(selfUserId))) return;
+    if (await this.#moderateSpam(client, message, authorId)) return;
+    const text = chatLog.message;
+    if (typeof text !== 'string') return;
     try {
       if (text === '!ping') {
         await this.#channelFor(client, message.chatId).sendText('pong!');
@@ -254,6 +272,70 @@ export class ManagedLegacyBot {
     } catch (error) {
       this.#recordHandlerError('message-handler-error', error);
     }
+  }
+
+  async #moderateSpam(client, message, authorId) {
+    if (message.li === undefined) return false;
+    const channelId = toLong(message.chatId);
+    const linkId = toLong(message.li).toNumber();
+    if (!Number.isSafeInteger(linkId)) return false;
+
+    const now = this.now();
+    if (!Number.isFinite(now)) throw new Error('Spam detection clock returned a non-finite value');
+    this.#sweepSpamWindows(now);
+    const key = this.#spamKey(channelId, authorId);
+    if (this.#spamKickSuppressed.has(key)) return true;
+
+    const cutoff = now - this.spamWindowMs;
+    const timestamps = (this.#messageWindows.get(key) ?? [])
+      .filter(timestamp => timestamp > cutoff);
+    timestamps.push(now);
+    if (timestamps.length < this.spamMessageThreshold) {
+      this.#messageWindows.set(key, timestamps);
+      return false;
+    }
+
+    this.#messageWindows.delete(key);
+    this.#spamKickSuppressed.add(key);
+    try {
+      await client.kickMember(linkId, channelId, authorId, false);
+      this.#counters.spamKicks += 1;
+      this.log('spam-user-kicked', {
+        threshold: this.spamMessageThreshold,
+        windowMs: this.spamWindowMs,
+      });
+    } catch (error) {
+      this.#spamKickSuppressed.delete(key);
+      this.#recordHandlerError('spam-kick-error', error);
+    }
+    return true;
+  }
+
+  #spamKey(channelId, memberId) {
+    return `${toLong(channelId).toString()}:${toLong(memberId).toString()}`;
+  }
+
+  #clearSpamMember(channelId, memberId) {
+    const key = this.#spamKey(channelId, memberId);
+    this.#messageWindows.delete(key);
+    this.#spamKickSuppressed.delete(key);
+  }
+
+  #sweepSpamWindows(now) {
+    if (now - this.#lastSpamSweep < this.spamWindowMs) return;
+    this.#lastSpamSweep = now;
+    const cutoff = now - this.spamWindowMs;
+    for (const [key, timestamps] of this.#messageWindows) {
+      const retained = timestamps.filter(timestamp => timestamp > cutoff);
+      if (retained.length === 0) this.#messageWindows.delete(key);
+      else this.#messageWindows.set(key, retained);
+    }
+  }
+
+  #clearSpamTracking() {
+    this.#messageWindows.clear();
+    this.#spamKickSuppressed.clear();
+    this.#lastSpamSweep = 0;
   }
 
   #channelFor(client, channelId) {

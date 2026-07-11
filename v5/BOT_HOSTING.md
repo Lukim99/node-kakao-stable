@@ -6,6 +6,7 @@
 
 - first-entry and returning-member greetings;
 - a capped per-member join/leave/kick history;
+- per-room, per-user spam detection that kicks on the fifth message inside a rolling one-second window;
 - `!ping` -> `pong!`;
 - `!가리기` on an open-chat comment to hide its parent message when the account has permission;
 - server-provided keepalive plus bounded automatic reconnect;
@@ -76,6 +77,7 @@ Vercel Functions are not suitable for the Kakao connection itself: functions hav
 
 - Main-device approval remains a manual security action.
 - The dashboard On action never performs device-registration bypasses.
+- Automatic spam moderation works only in open chats where the bot account has kick permission. It does not report the member, and failed kick attempts are recorded as operational errors.
 - Filesystem history contains Kakao member identifiers and nicknames. Protect the volume and backups accordingly.
 - Reconnect cannot guarantee zero downtime during provider maintenance or server-side session invalidation.
 - Confirm Kakao's applicable terms before operating an automated account continuously.

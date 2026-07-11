@@ -16,6 +16,8 @@ class FakeTalkClient extends EventEmitter {
   connected = false;
   sent = [];
   hidden = [];
+  kicked = [];
+  kickGate;
 
   async connect() {
     this.connected = true;
@@ -28,6 +30,12 @@ class FakeTalkClient extends EventEmitter {
 
   async hideMessages(linkId, channelId, logs) {
     this.hidden.push({ linkId, channelId, logs });
+    return {};
+  }
+
+  async kickMember(linkId, channelId, memberId, report) {
+    this.kicked.push({ linkId, channelId, memberId, report });
+    await this.kickGate;
     return {};
   }
 
@@ -106,4 +114,51 @@ test('managed bot reproduces legacy join history and current commands', async t 
   assert.equal(client.hidden[0].logs[0].logId.toNumber(), 3);
   await bot.stop();
   assert.equal(bot.status().state, 'off');
+});
+
+test('managed bot kicks a user once on the fifth message inside one second', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'node-kakao-spam-bot-'));
+  t.after(async () => await rm(directory, { recursive: true, force: true }));
+  const client = new FakeTalkClient();
+  let releaseKick;
+  client.kickGate = new Promise(resolve => { releaseKick = resolve; });
+  let now = 0;
+  const bot = new ManagedLegacyBot({
+    historyStore: new MemberHistoryStore(join(directory, 'members')),
+    statePath: join(directory, 'state.json'),
+    reconnectDelaysMs: [1_000],
+    now: () => now,
+    createConnection: async () => ({
+      client,
+      credential: { userId: Long.fromNumber(99), deviceUuid: 'fixture', accessToken: 'fixture' },
+    }),
+  });
+  t.after(async () => await bot.close());
+  await bot.start();
+
+  const emitMessage = at => {
+    now = at;
+    client.emit('message', {
+      chatId: Long.fromNumber(11),
+      li: Long.fromNumber(5),
+      chatLog: { authorId: Long.fromNumber(7), message: '도배 메시지' },
+    });
+  };
+
+  for (const at of [0, 100, 200, 300]) emitMessage(at);
+  assert.equal(client.kicked.length, 0);
+  emitMessage(400);
+  await waitFor(() => client.kicked.length === 1);
+
+  // Messages arriving while the kick request is pending must not dispatch it again.
+  emitMessage(450);
+  emitMessage(500);
+  assert.equal(client.kicked.length, 1);
+  releaseKick();
+  await waitFor(() => bot.status().counters.spamKicks === 1);
+
+  assert.equal(client.kicked[0].linkId, 5);
+  assert.equal(client.kicked[0].channelId.toString(), '11');
+  assert.equal(client.kicked[0].memberId.toString(), '7');
+  assert.equal(client.kicked[0].report, false);
 });
