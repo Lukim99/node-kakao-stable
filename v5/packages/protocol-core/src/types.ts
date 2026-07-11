@@ -20,8 +20,14 @@ export interface EncodedPayload {
   readonly payload: Uint8Array;
 }
 
-export interface PayloadCodec<TInput, TOutput> {
-  canDecode(dataType: number): boolean;
+export interface PayloadEncoder<TInput> {
   encode(value: TInput): EncodedPayload;
+}
+
+export interface PayloadDecoder<TOutput> {
+  canDecode(dataType: number): boolean;
   decode(dataType: number, payload: Uint8Array): TOutput;
 }
+
+export interface PayloadCodec<TInput, TOutput>
+  extends PayloadEncoder<TInput>, PayloadDecoder<TOutput> {}

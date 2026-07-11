@@ -1,12 +1,39 @@
 {
-  "name": "@node-kakao/client-core",
+  "name": "@lukim9-kakao/client-core",
   "version": "5.0.0-alpha.0",
-  "private": true,
+  "description": "Protocol-independent client state, typed push router, reaction/community reducers",
+  "license": "MIT",
   "type": "module",
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lukim99/node-kakao-stable.git",
+    "directory": "v5/packages/client-core"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true});require('node:fs').rmSync('dist-test',{recursive:true,force:true})\"",
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/test/*.test.js"
+  },
+  "dependencies": {
+    "@lukim9-kakao/protocol-core": "5.0.0-alpha.0"
   }
 }

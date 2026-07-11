@@ -1,0 +1,10 @@
+node_modules
+packages/*/dist
+packages/*/dist-test
+docs/frida
+.env*
+.live-auth-*
+.bot-data
+.bot-state.json
+coverage
+*.tsbuildinfo

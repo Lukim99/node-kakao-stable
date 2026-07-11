@@ -61,3 +61,14 @@ test('rejects a malformed frame length', () => {
   const encoded = codec.encode(packet);
   assert.throws(() => codec.decode(encoded.subarray(0, encoded.length - 1)), InvalidLocoPacketError);
 });
+
+test('incremental decoder handles one-byte fragmentation without losing state', () => {
+  const codec = new LocoFrameCodec();
+  const decoder = new LocoFrameDecoder();
+  const encoded = codec.encode({ ...packet, payload: new Uint8Array(4_096) });
+  const decoded = [];
+  for (const byte of encoded) decoded.push(...decoder.push(Uint8Array.of(byte)));
+  assert.equal(decoded.length, 1);
+  assert.equal(decoded[0]?.payload.byteLength, 4_096);
+  assert.equal(decoder.bufferedBytes, 0);
+});

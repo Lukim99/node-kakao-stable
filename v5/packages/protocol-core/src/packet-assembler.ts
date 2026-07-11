@@ -1,4 +1,5 @@
-import { InvalidLocoPacketError, UnsupportedLocoDataTypeError } from './errors.js';
+import { UnsupportedLocoDataTypeError } from './errors.js';
+import { RequestIdAllocator } from './request-id-allocator.js';
 import type { LocoPacket, PayloadCodec } from './types.js';
 
 export interface PacketAssemblerOptions {
@@ -7,27 +8,24 @@ export interface PacketAssemblerOptions {
 }
 
 export class PacketAssembler<TInput, TOutput> {
-  private nextRequestId: number;
-  private readonly maximumRequestId: number;
+  private readonly requestIds: RequestIdAllocator;
 
   public constructor(
     private readonly payloadCodec: PayloadCodec<TInput, TOutput>,
     options: PacketAssemblerOptions = {},
   ) {
-    this.nextRequestId = options.firstRequestId ?? 1;
-    this.maximumRequestId = options.maximumRequestId ?? 99_999;
-
-    if (!Number.isInteger(this.nextRequestId) || this.nextRequestId < 1) {
-      throw new RangeError('firstRequestId must be a positive integer');
-    }
-    if (!Number.isInteger(this.maximumRequestId) || this.maximumRequestId < this.nextRequestId) {
-      throw new RangeError('maximumRequestId must be >= firstRequestId');
-    }
+    const firstRequestId = options.firstRequestId ?? 1;
+    const maximumRequestId = options.maximumRequestId ?? 99_999;
+    this.requestIds = new RequestIdAllocator({
+      minimum: 1,
+      maximum: maximumRequestId,
+      initial: firstRequestId,
+    });
   }
 
   public construct(method: string, data: TInput): LocoPacket {
     const encoded = this.payloadCodec.encode(data);
-    const id = this.allocateRequestId();
+    const id = this.requestIds.acquire();
     return {
       header: { id, status: 0, method },
       dataType: encoded.dataType,
@@ -42,12 +40,7 @@ export class PacketAssembler<TInput, TOutput> {
     return this.payloadCodec.decode(packet.dataType, packet.payload);
   }
 
-  private allocateRequestId(): number {
-    if (this.nextRequestId > this.maximumRequestId) {
-      throw new InvalidLocoPacketError('request id allocator entered an invalid state');
-    }
-    const id = this.nextRequestId;
-    this.nextRequestId = id === this.maximumRequestId ? 1 : id + 1;
-    return id;
+  public releaseRequestId(id: number): boolean {
+    return this.requestIds.release(id);
   }
 }

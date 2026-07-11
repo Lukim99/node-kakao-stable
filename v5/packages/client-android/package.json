@@ -1,0 +1,45 @@
+{
+  "name": "@lukim9-kakao/client-android",
+  "version": "5.0.0-alpha.0",
+  "description": "High-level KakaoTalk Android client: auth, bootstrap, channel API, and AndroidTalkClient",
+  "license": "MIT",
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lukim99/node-kakao-stable.git",
+    "directory": "v5/packages/client-android"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true});require('node:fs').rmSync('dist-test',{recursive:true,force:true})\"",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/test/*.test.js"
+  },
+  "dependencies": {
+    "@lukim9-kakao/protocol-android": "5.0.0-alpha.0",
+    "@lukim9-kakao/protocol-core": "5.0.0-alpha.0",
+    "@lukim9-kakao/transport-node": "5.0.0-alpha.0",
+    "bson": "^6.10.3"
+  },
+  "devDependencies": {
+    "@lukim9-kakao/testkit": "5.0.0-alpha.0"
+  }
+}

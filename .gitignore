@@ -70,3 +70,6 @@ deno-test.ts
 *.swp
 
 node-kakao-v5-scaffold.patch
+# secrets — never commit
+.env.local
+*.env.local
