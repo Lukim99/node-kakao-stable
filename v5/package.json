@@ -10,10 +10,18 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "npm run build -w @node-kakao/protocol-core && npm run build -w @node-kakao/protocol-profiles && npm run build -w @node-kakao/client-core && npm run build -w @node-kakao/testkit && npm run build -w @node-kakao/transport-node",
-    "typecheck": "npm run build -w @node-kakao/protocol-core && npm run typecheck -w @node-kakao/protocol-core && npm run typecheck -w @node-kakao/protocol-profiles && npm run typecheck -w @node-kakao/client-core && npm run typecheck -w @node-kakao/testkit && npm run typecheck -w @node-kakao/transport-node",
-    "test": "npm run test -w @node-kakao/protocol-core",
+    "build": "npm run build -w @lukim9-kakao/protocol-core && npm run build -w @lukim9-kakao/protocol-android && npm run build -w @lukim9-kakao/transport-node && npm run build -w @lukim9-kakao/client-core && npm run build -w @lukim9-kakao/testkit && npm run build -w @lukim9-kakao/client-android && npm run build -w @lukim9-kakao/protocol-profiles",
+    "typecheck": "npm run build && npm run typecheck -w @lukim9-kakao/protocol-core && npm run typecheck -w @lukim9-kakao/protocol-android && npm run typecheck -w @lukim9-kakao/transport-node && npm run typecheck -w @lukim9-kakao/client-core && npm run typecheck -w @lukim9-kakao/testkit && npm run typecheck -w @lukim9-kakao/client-android && npm run typecheck -w @lukim9-kakao/protocol-profiles",
+    "test": "npm run test -w @lukim9-kakao/protocol-core && npm run test -w @lukim9-kakao/protocol-android && npm run test -w @lukim9-kakao/transport-node && npm run test -w @lukim9-kakao/client-core && npm run test -w @lukim9-kakao/testkit && npm run test -w @lukim9-kakao/client-android && npm run test:bot",
+    "test:bot": "node --test scripts/test/*.test.mjs",
     "check": "npm run typecheck && npm run test",
+    "live:login:capture": "node scripts/live-login-from-capture.mjs --allow-live",
+    "live:auth": "node scripts/live-auth-env.mjs --allow-live",
+    "live:auth:generate-passcode": "node scripts/live-auth-env.mjs --allow-live --generate-passcode",
+    "live:auth:poll-register": "node scripts/live-auth-env.mjs --allow-live --poll-register-once",
+    "live:auth:complete": "node scripts/live-auth-env.mjs --allow-live --complete-passcode-flow",
+    "bot:start": "node scripts/managed-chatbot.mjs --allow-live",
+    "bot:connect-check": "node scripts/managed-chatbot.mjs --allow-live --connect-check",
     "clean": "npm run clean --workspaces --if-present"
   },
   "devDependencies": {

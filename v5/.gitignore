@@ -3,3 +3,7 @@ packages/*/dist/
 packages/*/dist-test/
 *.tsbuildinfo
 coverage/
+.live-auth-passcode
+.live-auth-credential.json
+.bot-data/
+.bot-state.json

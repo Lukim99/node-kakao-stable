@@ -20,4 +20,6 @@ test('packet assembler allocates ids and round-trips BSON payloads', () => {
   assert.equal(second.header.id, 3);
   assert.equal(wrapped.header.id, 1);
   assert.equal(assembler.deconstruct(first).value, 'first');
+  assert.equal(assembler.releaseRequestId(first.header.id), true);
+  assert.equal(assembler.construct('ECHO', { value: 'reused' }).header.id, 2);
 });

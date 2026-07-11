@@ -134,6 +134,8 @@ export class LocoFrameCodec {
 
 export class LocoFrameDecoder {
   private buffer = new Uint8Array(0);
+  private start = 0;
+  private end = 0;
   private readonly codec: LocoFrameCodec;
   private readonly maxBufferedBytes: number;
 
@@ -146,37 +148,61 @@ export class LocoFrameDecoder {
   }
 
   public get bufferedBytes(): number {
-    return this.buffer.byteLength;
+    return this.end - this.start;
   }
 
   public reset(): void {
     this.buffer = new Uint8Array(0);
+    this.start = 0;
+    this.end = 0;
   }
 
   public push(chunk: Uint8Array): LocoPacket[] {
     if (chunk.byteLength === 0) return [];
-    const combinedLength = this.buffer.byteLength + chunk.byteLength;
+    const combinedLength = this.bufferedBytes + chunk.byteLength;
     if (combinedLength > this.maxBufferedBytes) {
       throw new LocoPacketTooLargeError(combinedLength, this.maxBufferedBytes);
     }
 
-    const combined = new Uint8Array(combinedLength);
-    combined.set(this.buffer, 0);
-    combined.set(chunk, this.buffer.byteLength);
-    this.buffer = combined;
+    this.ensureCapacity(combinedLength);
+    this.buffer.set(chunk, this.end);
+    this.end += chunk.byteLength;
 
     const packets: LocoPacket[] = [];
-    let offset = 0;
-    while (this.buffer.byteLength - offset >= LOCO_HEADER_SIZE) {
+    let offset = this.start;
+    while (this.end - offset >= LOCO_HEADER_SIZE) {
       const header = this.codec.decodeHeader(this.buffer.subarray(offset, offset + LOCO_HEADER_SIZE));
       const frameLength = LOCO_HEADER_SIZE + header.payloadLength;
-      if (this.buffer.byteLength - offset < frameLength) break;
+      if (this.end - offset < frameLength) break;
 
       packets.push(this.codec.decode(this.buffer.slice(offset, offset + frameLength)));
       offset += frameLength;
     }
 
-    if (offset > 0) this.buffer = this.buffer.slice(offset);
+    this.start = offset;
+    if (this.start === this.end) {
+      this.start = 0;
+      this.end = 0;
+    }
     return packets;
+  }
+
+  private ensureCapacity(required: number): void {
+    if (this.buffer.byteLength - this.end >= required - this.bufferedBytes) return;
+    const retainedLength = this.bufferedBytes;
+    if (this.start > 0 && this.buffer.byteLength >= required) {
+      this.buffer.copyWithin(0, this.start, this.end);
+      this.end = retainedLength;
+      this.start = 0;
+      return;
+    }
+
+    let capacity = Math.max(LOCO_HEADER_SIZE, this.buffer.byteLength);
+    while (capacity < required) capacity = Math.min(this.maxBufferedBytes, capacity * 2);
+    const grown = new Uint8Array(capacity);
+    grown.set(this.buffer.subarray(this.start, this.end));
+    this.end = retainedLength;
+    this.start = 0;
+    this.buffer = grown;
   }
 }

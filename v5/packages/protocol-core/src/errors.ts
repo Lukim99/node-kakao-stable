@@ -21,3 +21,12 @@ export class UnsupportedLocoDataTypeError extends LocoProtocolError {
     super(`Unsupported LOCO data type: ${dataType}`);
   }
 }
+
+export class RequestIdExhaustedError extends LocoProtocolError {
+  public constructor(
+    public readonly minimum: number,
+    public readonly maximum: number,
+  ) {
+    super(`No LOCO request ID is available in range ${minimum}..${maximum}`);
+  }
+}
