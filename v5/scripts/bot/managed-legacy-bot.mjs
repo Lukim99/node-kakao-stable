@@ -50,7 +50,14 @@ export class ManagedLegacyBot {
   #lastError;
   #initialChannelCount = 0;
   #responsesEnabled = true;
-  #counters = { joins: 0, leaves: 0, messages: 0, replies: 0, spamKicks: 0, errors: 0 };
+  #counters = {
+    joins: 0,
+    leaves: 0,
+    messages: 0,
+    replies: 0,
+    spamKicks: 0,
+    errors: 0,
+  };
 
   constructor(options) {
     this.createConnection = options.createConnection;
@@ -58,14 +65,17 @@ export class ManagedLegacyBot {
     this.statePath = options.statePath;
     this.log = options.log ?? (() => undefined);
     this.now = options.now ?? (() => Date.now());
-    this.spamWindowMs = options.spamWindowMs ?? 1_000;
-    this.spamMessageThreshold = options.spamMessageThreshold ?? 5;
-    if (!Number.isSafeInteger(this.spamWindowMs) || this.spamWindowMs < 1) {
-      throw new RangeError('spamWindowMs must be a positive safe integer');
+    this.spamRules = options.spamRules ?? [
+      { windowMs: 1_000, messageThreshold: 4 },
+      { windowMs: 10_000, messageThreshold: 25 },
+    ];
+    if (!Array.isArray(this.spamRules) || this.spamRules.length === 0 ||
+      this.spamRules.some(rule => !Number.isSafeInteger(rule.windowMs) || rule.windowMs < 1 ||
+        !Number.isSafeInteger(rule.messageThreshold) || rule.messageThreshold < 2)) {
+      throw new RangeError('spamRules must contain positive windows and thresholds of at least 2');
     }
-    if (!Number.isSafeInteger(this.spamMessageThreshold) || this.spamMessageThreshold < 2) {
-      throw new RangeError('spamMessageThreshold must be a safe integer of at least 2');
-    }
+    this.maximumSpamWindowMs = Math.max(...this.spamRules.map(rule => rule.windowMs));
+    this.spamSweepIntervalMs = Math.min(...this.spamRules.map(rule => rule.windowMs));
     this.reconnectDelaysMs = options.reconnectDelaysMs ?? [1_000, 2_000, 5_000, 10_000, 30_000];
     if (!Array.isArray(this.reconnectDelaysMs) || this.reconnectDelaysMs.length === 0 ||
       this.reconnectDelaysMs.some(delay => !Number.isSafeInteger(delay) || delay < 0)) {
@@ -286,11 +296,20 @@ export class ManagedLegacyBot {
     const key = this.#spamKey(channelId, authorId);
     if (this.#spamKickSuppressed.has(key)) return true;
 
-    const cutoff = now - this.spamWindowMs;
+    const cutoff = now - this.maximumSpamWindowMs;
     const timestamps = (this.#messageWindows.get(key) ?? [])
       .filter(timestamp => timestamp > cutoff);
     timestamps.push(now);
-    if (timestamps.length < this.spamMessageThreshold) {
+    const triggeredRule = this.spamRules.find(rule => {
+      const ruleCutoff = now - rule.windowMs;
+      let count = 0;
+      for (let index = timestamps.length - 1; index >= 0; index -= 1) {
+        if (timestamps[index] <= ruleCutoff) break;
+        count += 1;
+      }
+      return count >= rule.messageThreshold;
+    });
+    if (triggeredRule === undefined) {
       this.#messageWindows.set(key, timestamps);
       return false;
     }
@@ -301,8 +320,8 @@ export class ManagedLegacyBot {
       await client.kickMember(linkId, channelId, authorId, false);
       this.#counters.spamKicks += 1;
       this.log('spam-user-kicked', {
-        threshold: this.spamMessageThreshold,
-        windowMs: this.spamWindowMs,
+        threshold: triggeredRule.messageThreshold,
+        windowMs: triggeredRule.windowMs,
       });
     } catch (error) {
       this.#spamKickSuppressed.delete(key);
@@ -322,9 +341,9 @@ export class ManagedLegacyBot {
   }
 
   #sweepSpamWindows(now) {
-    if (now - this.#lastSpamSweep < this.spamWindowMs) return;
+    if (now - this.#lastSpamSweep < this.spamSweepIntervalMs) return;
     this.#lastSpamSweep = now;
-    const cutoff = now - this.spamWindowMs;
+    const cutoff = now - this.maximumSpamWindowMs;
     for (const [key, timestamps] of this.#messageWindows) {
       const retained = timestamps.filter(timestamp => timestamp > cutoff);
       if (retained.length === 0) this.#messageWindows.delete(key);

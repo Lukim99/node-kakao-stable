@@ -116,7 +116,7 @@ test('managed bot reproduces legacy join history and current commands', async t 
   assert.equal(bot.status().state, 'off');
 });
 
-test('managed bot kicks a user once on the fifth message inside one second', async t => {
+test('managed bot kicks a user once on the fourth message inside one second', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'node-kakao-spam-bot-'));
   t.after(async () => await rm(directory, { recursive: true, force: true }));
   const client = new FakeTalkClient();
@@ -145,14 +145,14 @@ test('managed bot kicks a user once on the fifth message inside one second', asy
     });
   };
 
-  for (const at of [0, 100, 200, 300]) emitMessage(at);
+  for (const at of [0, 100, 200]) emitMessage(at);
   assert.equal(client.kicked.length, 0);
-  emitMessage(400);
+  emitMessage(300);
   await waitFor(() => client.kicked.length === 1);
 
   // Messages arriving while the kick request is pending must not dispatch it again.
-  emitMessage(450);
-  emitMessage(500);
+  emitMessage(350);
+  emitMessage(400);
   assert.equal(client.kicked.length, 1);
   releaseKick();
   await waitFor(() => bot.status().counters.spamKicks === 1);
@@ -161,4 +161,44 @@ test('managed bot kicks a user once on the fifth message inside one second', asy
   assert.equal(client.kicked[0].channelId.toString(), '11');
   assert.equal(client.kicked[0].memberId.toString(), '7');
   assert.equal(client.kicked[0].report, false);
+});
+
+test('managed bot also kicks on the twenty-fifth message inside ten seconds', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'node-kakao-sustained-spam-'));
+  t.after(async () => await rm(directory, { recursive: true, force: true }));
+  const client = new FakeTalkClient();
+  let now = 0;
+  const bot = new ManagedLegacyBot({
+    historyStore: new MemberHistoryStore(join(directory, 'members')),
+    statePath: join(directory, 'state.json'),
+    reconnectDelaysMs: [1_000],
+    now: () => now,
+    createConnection: async () => ({
+      client,
+      credential: { userId: Long.fromNumber(99), deviceUuid: 'fixture', accessToken: 'fixture' },
+    }),
+  });
+  t.after(async () => await bot.close());
+  await bot.start();
+
+  // 400ms spacing never reaches four messages in a rolling second.
+  for (let index = 0; index < 24; index += 1) {
+    now = index * 400;
+    client.emit('message', {
+      chatId: Long.fromNumber(12),
+      li: Long.fromNumber(6),
+      chatLog: { authorId: Long.fromNumber(8), message: '지속 도배' },
+    });
+  }
+  assert.equal(client.kicked.length, 0);
+
+  now = 24 * 400;
+  client.emit('message', {
+    chatId: Long.fromNumber(12),
+    li: Long.fromNumber(6),
+    chatLog: { authorId: Long.fromNumber(8), message: '지속 도배' },
+  });
+  await waitFor(() => client.kicked.length === 1);
+  assert.equal(client.kicked[0].memberId.toString(), '8');
+  await waitFor(() => bot.status().counters.spamKicks === 1);
 });

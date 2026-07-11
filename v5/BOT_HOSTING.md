@@ -6,7 +6,7 @@
 
 - first-entry and returning-member greetings;
 - a capped per-member join/leave/kick history;
-- per-room, per-user spam detection that kicks on the fifth message inside a rolling one-second window;
+- per-room, per-user spam detection that kicks on either 4 messages in a rolling second or 25 messages in rolling 10 seconds;
 - `!ping` -> `pong!`;
 - `!가리기` on an open-chat comment to hide its parent message when the account has permission;
 - server-provided keepalive plus bounded automatic reconnect;
