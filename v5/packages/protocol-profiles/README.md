@@ -2,6 +2,10 @@
 
 KakaoTalk protocol reference profiles with compatibility labels
 
+The package also exports `androidReferenceLocoPublicKeyPem`, the public RSA key
+from the Android reference configuration. It is bundled as non-secret public
+material and is not claimed to be an official, latest, or permanent server key.
+
 Part of the **node-kakao v5** workspace — a modern rewrite of the KakaoTalk LOCO client.
 See the [repository](https://github.com/Lukim99/node-kakao-stable) for full docs and the
 high-level `AndroidTalkClient`.

@@ -18,7 +18,9 @@ test('control server protects status and On/Off operations with a bearer token',
   t.after(async () => await server.close());
   const base = `http://127.0.0.1:${server.port}`;
 
-  assert.equal((await fetch(`${base}/healthz`)).status, 200);
+  const health = await fetch(`${base}/healthz`);
+  assert.equal(health.status, 200);
+  assert.deepEqual(await health.json(), { ok: true });
   assert.equal((await fetch(`${base}/api/status`)).status, 401);
   const headers = { Authorization: 'Bearer fixture-control-token' };
   const started = await fetch(`${base}/api/bot/on`, { method: 'POST', headers });

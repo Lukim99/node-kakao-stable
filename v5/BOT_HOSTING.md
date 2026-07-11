@@ -39,7 +39,8 @@ For remote hosting, configure secrets in the hosting provider rather than upload
 | --- | --- |
 | `KAKAO_ID`, `KAKAO_PW` | Authorized account password login |
 | `KAKAO_DEVICE_UUID` | Already approved Android sub-device UUID |
-| `KAKAO_LOCO_PUBLIC_KEY` | Caller-provided public PEM; escaped `\n` is accepted |
+| `KAKAO_LOCO_PUBLIC_KEY` | Optional public-key override; the tested Android reference PEM is bundled |
+| `KAKAO_LOCO_PUBLIC_KEY_PATH` | Optional path to a replacement public PEM |
 | `BOT_ADMIN_TOKEN` | Required remote dashboard bearer token; use 20+ random characters |
 | `BOT_CONTROL_HOST` | Set to `0.0.0.0` in a container |
 | `PORT` | HTTP port; Railway supplies this automatically |
@@ -58,10 +59,12 @@ Use `v5` as the service root. The included `Dockerfile` and `railway.json` build
 
 1. Create a Railway persistent service from the repository.
 2. Set the root/config directory to `v5`.
-3. Add the required secret variables above.
+3. Add `KAKAO_ID`, `KAKAO_PW`, the approved `KAKAO_DEVICE_UUID`, and `BOT_ADMIN_TOKEN` as secret variables. The public LOCO key does not need a Railway variable.
 4. Generate a public domain for the dashboard.
 5. Attach a volume at `/app/data` if member history and the Off state must survive redeploys.
 6. Keep exactly one replica. Multiple replicas would log the same Kakao account in concurrently and duplicate bot replies.
+
+Set the Railway healthcheck path to `/healthz` if Config as Code is not being used. The endpoint is already implemented and intentionally reports only that the control process can serve HTTP; a temporary Kakao connection failure does not fail the deployment healthcheck.
 
 Railway documents persistent services as always-running containers and supports an `ALWAYS` restart policy. Free/trial plans restrict that policy, so dependable 24-hour operation generally needs a paid plan.
 

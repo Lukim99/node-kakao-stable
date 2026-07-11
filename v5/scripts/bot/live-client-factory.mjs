@@ -1,5 +1,4 @@
 import { readFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { Long } from 'bson';
 import {
@@ -7,6 +6,7 @@ import {
   AndroidTalkClient,
   legacyAndroidSubXvcProvider,
 } from '@lukim9-kakao/client-android';
+import { androidReferenceLocoPublicKeyPem } from '@lukim9-kakao/protocol-profiles';
 
 function parseEnvironment(source) {
   const values = {};
@@ -49,20 +49,14 @@ async function loadAdvertisementId(workspace, environment) {
   return advertisementId;
 }
 
-async function loadPublicKey(repository, environment) {
+export async function loadLocoPublicKey(repository, environment) {
   if (environment.KAKAO_LOCO_PUBLIC_KEY) {
     return environment.KAKAO_LOCO_PUBLIC_KEY.replaceAll('\\n', '\n');
   }
   if (environment.KAKAO_LOCO_PUBLIC_KEY_PATH) {
     return await readFile(resolve(repository, environment.KAKAO_LOCO_PUBLIC_KEY_PATH), 'utf8');
   }
-  try {
-    const require = createRequire(import.meta.url);
-    const reference = require(join(repository, 'node-kakao-now/node-kakao/dist/config.js'));
-    return reference.DefaultConfiguration.locoPEMPublicKey;
-  } catch {
-    throw new Error('KAKAO_LOCO_PUBLIC_KEY or KAKAO_LOCO_PUBLIC_KEY_PATH is required');
-  }
+  return androidReferenceLocoPublicKeyPem;
 }
 
 function storedCredential(value, environment) {
@@ -124,7 +118,7 @@ export async function createLiveBotConnection({ workspace, repository, log = () 
   if (credential === undefined) throw new Error('No usable Kakao credential is configured');
 
   const client = new AndroidTalkClient(configuration, {
-    locoPublicKey: await loadPublicKey(repository, environment),
+    locoPublicKey: await loadLocoPublicKey(repository, environment),
     ...(advertisementId === undefined ? {} : { advertisementId }),
     pingIntervalMs: Number(environment.BOT_PING_INTERVAL_MS ?? 30_000),
   });

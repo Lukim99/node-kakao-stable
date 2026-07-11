@@ -21,6 +21,26 @@ export interface AndroidProtocolProfile extends ProtocolProfile {
 }
 
 /**
+ * RSA public key used by the Android LOCO reference configuration.
+ *
+ * This is public key material, not an account secret. It is bundled so the v5
+ * client can be deployed without copying `node-kakao-now` into the image or
+ * configuring a multiline environment variable. The value comes from the
+ * local Android 11.0.0 reference and has also been accepted by the server
+ * during this workspace's live connection checks. That observation does not
+ * make it an official or permanently current KakaoTalk key.
+ */
+export const androidReferenceLocoPublicKeyPem = `-----BEGIN PUBLIC KEY-----
+MIIBIDANBgkqhkiG9w0BAQEFAAOCAQ0AMIIBCAKCAQEArFhojUWXqu7GRj8GWNIg
+X5J6w23jbW3spYzLvQqLSKct6EVD6Ut9dfXCA/wCE/9FfPeJBEhqsY5JxYUEHV
+vz+2m7+cjDCxbQThSG5z1hDSggLxA30QRBF2/gKDo6um9Ng0q4QDO+3+mqVw1
+cVox0Xt++R4UdNT2BkVG+vp0T2c5e1QdeKvYnHYImPbeocGY+SHRcMWeZPfUr
+k0bLbnw6O/KDei5LOVk435LEsKHNtj7u4fswCVds4IFtgjjBrtrvhk4CitOcR
+rVVyeuODIuXy7g3dca1ZLPLxhb6fT25UtKd+8/jFTIMh4n/ul2u6pi7ny+WlE
+PPeBshwy4iPQ63PQIBAw==
+-----END PUBLIC KEY-----`;
+
+/**
  * Historical reference only. This does not claim current server compatibility.
  */
 export const legacyNodeKakaoV4Profile: ProtocolProfile = Object.freeze({
