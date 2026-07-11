@@ -5,6 +5,20 @@ import { formatHistory } from './member-history-store.mjs';
 
 const toLong = value => Long.isLong(value) ? value : Long.fromValue(value);
 
+export const VIEWMORE = ('\u200e'.repeat(500));
+
+export const WELCOME_MESSAGE = `💯 우리방은 진짜 매칭이 됩니다!
+
+
+📌 소개 신청 방법
+오른쪽 상단 메뉴(☰)에서 공지사항을 클릭해 확인해주세요 ✨
+공지에 신청 링크가 있어요!
+(10초면 완료💌)
+
+
+❤️ 채팅방 하트(♡)도 꼭 눌러주세요 :)
+궁금한 점은 신청 후 물어보시면 돼요😄`;
+
 async function readDesiredState(path, fallback) {
   try {
     const value = JSON.parse(await readFile(path, 'utf8'));
@@ -181,13 +195,15 @@ export class ManagedLegacyBot {
         const nickname = feed.nicknames[index];
         const memberId = feed.memberIds[index];
         if (nickname === undefined) continue;
-        let text = `${nickname}님, 첫 입장을 환영합니다!`;
+        let text = WELCOME_MESSAGE;
         if (memberId !== undefined) {
           const history = await this.historyStore.recordJoin(memberId.toString(), nickname);
           if (history.entryNumber > 1) {
-            const recent = history.previousEvents.slice(-10);
-            text = `${nickname}님, ${history.entryNumber}번째 입장이네요!`;
-            if (recent.length > 0) text += `\n\n[이전 입·퇴장 기록]\n${formatHistory(recent)}`;
+            const historyText = formatHistory(history.previousEvents);
+            text = `🔄 ${nickname}님은 ${history.entryNumber}번째 입장입니다!\n\n${WELCOME_MESSAGE}`;
+            if (historyText.length > 0) {
+              text += `\n\n${VIEWMORE}\n\n📋 입퇴장 로그\n${historyText}`;
+            }
           }
         }
         await this.#channelFor(client, channelId).sendText(text);

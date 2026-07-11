@@ -6,7 +6,11 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Long } from 'bson';
 import { MemberHistoryStore } from '../bot/member-history-store.mjs';
-import { ManagedLegacyBot } from '../bot/managed-legacy-bot.mjs';
+import {
+  ManagedLegacyBot,
+  VIEWMORE,
+  WELCOME_MESSAGE,
+} from '../bot/managed-legacy-bot.mjs';
 
 class FakeTalkClient extends EventEmitter {
   connected = false;
@@ -68,11 +72,19 @@ test('managed bot reproduces legacy join history and current commands', async t 
   };
   client.emit('memberJoin', feed, Long.fromNumber(11));
   await waitFor(() => client.sent.length === 1);
-  assert.match(client.sent[0].text, /첫 입장/);
+  assert.equal(client.sent[0].text, WELCOME_MESSAGE);
+
+  client.emit('memberLeave', feed, Long.fromNumber(11));
+  await waitFor(() => bot.status().counters.leaves === 1);
   client.emit('memberJoin', feed, Long.fromNumber(11));
   await waitFor(() => client.sent.length === 2);
-  assert.match(client.sent[1].text, /2번째 입장/);
-  assert.match(client.sent[1].text, /이전 입·퇴장 기록/);
+  assert.ok(client.sent[1].text.startsWith(`🔄 테스터님은 2번째 입장입니다!\n\n${WELCOME_MESSAGE}`));
+  assert.equal([...client.sent[1].text].filter(character => character === '\u200e').length, 500);
+  assert.ok(client.sent[1].text.includes(VIEWMORE));
+  const [, historyText] = client.sent[1].text.split(VIEWMORE);
+  assert.match(historyText, /📋 입퇴장 로그/);
+  assert.match(historyText, /\[입장\] 테스터/);
+  assert.match(historyText, /\[퇴장\] 테스터/);
 
   client.emit('message', {
     chatId: Long.fromNumber(11),
