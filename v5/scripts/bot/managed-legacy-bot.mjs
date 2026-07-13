@@ -7,15 +7,13 @@ const toLong = value => Long.isLong(value) ? value : Long.fromValue(value);
 
 export const VIEWMORE = ('\u200e'.repeat(500));
 
-export const WELCOME_MESSAGE = `💯 우리방은 진짜 매칭이 됩니다!
+export const WELCOME_MESSAGE = `💘 매일 실제 매칭이 이루어지고 있습니다. 고민은 매칭만 늦출 뿐!
 
 📌 소개 신청 방법
-오른쪽 상단 메뉴(☰)에서 공지사항을 클릭해 확인해주세요 ✨
-공지에 신청 링크가 있어요!
-(10초면 완료💌)
+우측 상단(☰) [공지사항] 속 링크 클릭 ➡️ 10초 만에 완료! 💌
 
 ❤️ 채팅방 하트(♡)도 꼭 눌러주세요 :)
-궁금한 점은 신청 후 물어보시면 돼요😄`;
+💬 자세한 문의는 신청 완료 후 해주시면 친절히 안내해 드릴게요!`;
 
 async function readDesiredState(path, fallback) {
   try {
